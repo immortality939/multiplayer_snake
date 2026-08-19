@@ -92,11 +92,15 @@ function step() {
     if (p.dir === 'right') head.x++;
 
     if (
-  head.x < 0 ||
-  head.x >= WIDTH ||
-  head.y < 0 ||
-  head.y >= HEIGHT
-) {
+  head.x <= 0 ||
+  head.x >= WIDTH - 1 ||
+  head.y <= 0 ||
+  head.y >= HEIGHT - 1
+)
+{
+  p.alive = false;
+  continue;
+} {
       p.alive = false;
       continue;
     }

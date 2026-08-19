@@ -10,8 +10,10 @@ let ws = null;
 let mode = 'offline';
 let myId = null;
 
-let grid = 20;
-let size = 30;
+let gridWidth = 36;
+let gridHeight = 40;
+let size = 10;
+const drawSize = 10;
 const drawSize = 10;
 let players = {};
 let food = { x: 0, y: 0 };
@@ -28,7 +30,10 @@ function setStatus(text) {
 }
 
 function randomFood() {
-  return { x: Math.floor(Math.random() * grid), y: Math.floor(Math.random() * grid) };
+  return {
+    x: Math.floor(Math.random() * gridWidth),
+    y: Math.floor(Math.random() * gridHeight)
+  };
 }
 
 function setDir(current, next) {
@@ -65,8 +70,7 @@ function connectSocket() {
     const data = JSON.parse(ev.data);
     if (data.type === 'init') {
       myId = data.id;
-      grid = data.grid;
-      size = data.size;
+            size = data.size;
       mode = 'online';
       setStatus('Connected');
     }
@@ -128,7 +132,7 @@ restartBtn.onclick = () => {
 function drawGrid() {
 
   ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 3;
 
   ctx.strokeRect(
     4,
@@ -142,7 +146,7 @@ function drawSnake(snake, color) {
   if (!snake || snake.length === 0) return;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = drawSize * 0.35; // thinner snake
+  ctx.lineWidth = drawSize * 0.85; // thinner snake
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
@@ -177,7 +181,7 @@ function drawSnake(snake, color) {
   ctx.arc(
     hx,
     hy,
-    drawSize * 0.25,
+    drawSize * 0.42,
     0,
     Math.PI * 2
   );
@@ -256,7 +260,12 @@ function stepLocal() {
   if (localDir === 'left') head.x--;
   if (localDir === 'right') head.x++;
 
-  if (head.x < 0 || head.x >= grid || head.y < 0 || head.y >= grid) {
+  if (
+  head.x < 1 ||
+  head.x >= gridWidth - 1 ||
+  head.y < 1 ||
+  head.y >= gridHeight - 1
+) {
     localAlive = false;
     setStatus('Game Over');
     draw();
