@@ -4,6 +4,8 @@ const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restart');
 const controlButtons = document.querySelectorAll('.controls button');
 
+const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
+
 let ws = null;
 let mode = 'offline';
 let myId = null;
@@ -46,11 +48,8 @@ function resetLocalGame() {
 }
 
 function connectSocket() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${proto}//${location.host}`;
-
   try {
-    ws = new WebSocket(url);
+    ws = new WebSocket(WS_URL);
   } catch (e) {
     startOffline();
     return;
@@ -82,19 +81,11 @@ function connectSocket() {
   };
 
   ws.onclose = () => {
-    if (mode === 'online') {
-      startOffline();
-    }
+    if (mode === 'online') startOffline();
   };
 }
 
 function startOffline() {
-  if (mode !== 'offline') {
-    mode = 'offline';
-    setStatus('Offline');
-    resetLocalGame();
-    return;
-  }
   mode = 'offline';
   setStatus('Offline');
   resetLocalGame();
@@ -183,11 +174,8 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrid();
 
-  if (mode === 'online' && Object.keys(players).length) {
-    drawOnline();
-  } else {
-    drawLocal();
-  }
+  if (mode === 'online' && Object.keys(players).length) drawOnline();
+  else drawLocal();
 }
 
 function stepLocal() {
@@ -229,9 +217,7 @@ function stepLocal() {
 }
 
 function gameLoop() {
-  if (mode === 'offline') {
-    stepLocal();
-  }
+  if (mode === 'offline') stepLocal();
   draw();
 }
 
