@@ -4,28 +4,39 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Multiplayer Snake</title>
+
   <style>
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #0f1220;
+      background-image: url("btemplate.gif");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       color: #fff;
     }
+
     .wrap {
       max-width: 720px;
       margin: 0 auto;
-      padding: 16px;
+      padding: 0px;
       text-align: center;
     }
+
     canvas {
       background: #111827;
-      border: 2px solid #334155;
-      border-radius: 12px;
+      border: none;
+      border-radius: 0;
       max-width: 100%;
-      height: auto;
+      height: 500px;
       touch-action: none;
     }
+
     .hud {
       display: flex;
       justify-content: space-between;
@@ -33,6 +44,7 @@
       gap: 12px;
       margin: 12px 0;
     }
+
     button {
       padding: 10px 16px;
       border: 0;
@@ -43,12 +55,15 @@
       cursor: pointer;
       min-width: 70px;
     }
+
     button:active {
       transform: scale(0.98);
     }
+
     #status {
       font-weight: 600;
     }
+
     .controls {
       display: grid;
       grid-template-columns: 70px 70px 70px;
@@ -60,6 +75,7 @@
       -webkit-user-select: none;
       touch-action: none;
     }
+
     .controls button {
       width: 70px;
       height: 70px;
@@ -68,15 +84,35 @@
       color: #fff;
       border: 1px solid #334155;
     }
-    .up { grid-column: 2; grid-row: 1; }
-    .left { grid-column: 1; grid-row: 2; }
-    .down { grid-column: 2; grid-row: 2; }
-    .right { grid-column: 3; grid-row: 2; }
+
+    .up {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .down {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
   </style>
+
 </head>
+
 <body>
+
   <div class="wrap">
-    <h1>Multiplayer Snake</h1>
+
     <div class="hud">
       <div id="status">Connecting...</div>
       <button id="restart">Restart</button>
@@ -85,15 +121,21 @@
     <canvas id="game" width="600" height="600"></canvas>
 
     <div class="controls">
+
       <button class="up" data-dir="up">▲</button>
+
       <button class="left" data-dir="left">◀</button>
+
       <button class="down" data-dir="down">▼</button>
+
       <button class="right" data-dir="right">▶</button>
+
     </div>
 
-    <p>Use the buttons above on phone, or arrow keys / WASD on keyboard.</p>
   </div>
 
+
   <script src="game.js"></script>
+
 </body>
 </html>

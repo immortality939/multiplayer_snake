@@ -10,10 +10,10 @@ let ws = null;
 let mode = 'offline';
 let myId = null;
 
-let gridWidth = 36;
-let gridHeight = 40;
+let gridWidth = 72;
+let gridHeight = 80;
 let size = 10;
-const drawSize = 10;
+const drawSize = 5;
 let players = {};
 let food = { x: 0, y: 0 };
 
@@ -224,13 +224,24 @@ function drawOnline() {
   }
 }
 
+const gameBackground = new Image();
+gameBackground.src = "Sbackground.jpg";
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  drawGrid();
+  if (gameBackground.complete) {
+    ctx.drawImage(
+      gameBackground,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+  } else {
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   if (mode === "online" && Object.keys(players).length) {
     drawOnline();
