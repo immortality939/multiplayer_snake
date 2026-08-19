@@ -2,6 +2,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restart');
+const pauseBtn = document.getElementById('pause');
 const controlButtons = document.querySelectorAll('.controls button');
 
 const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
@@ -21,7 +22,7 @@ let localNextDir = 'right';
 let localGrow = 0;
 let localScore = 0;
 let localAlive = true;
-
+let paused = false;
 function setStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
@@ -116,12 +117,20 @@ controlButtons.forEach((btn) => {
   }, { passive: false });
 });
 
-restartBtn.onclick = () => {
-  if (mode === 'online' && ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'restart' }));
+pauseBtn.onclick = () => {
+
+  paused = !paused;
+
+  if(paused){
+
+    setStatus("Paused");
+
   } else {
-    resetLocalGame();
+
+    setStatus(mode === "online" ? "Connected" : "Offline");
+
   }
+
 };
 
 function drawGrid() {
@@ -141,7 +150,14 @@ function drawGrid() {
 
 function drawLocal() {
   ctx.fillStyle = '#ef4444';
-  ctx.fillRect(food.x * size, food.y * size, size, size);
+  let appleSize = size / 4;
+
+ctx.fillRect(
+ food.x * size + size/2 - appleSize/2,
+ food.y * size + size/2 - appleSize/2,
+ appleSize,
+ appleSize
+);
 
   ctx.fillStyle = '#22c55e';
   for (const seg of localSnake) {
@@ -155,12 +171,26 @@ function drawLocal() {
 
 function drawOnline() {
   ctx.fillStyle = '#ef4444';
-  ctx.fillRect(food.x * size, food.y * size, size, size);
+  let appleSize = size / 4;
+
+ctx.fillRect(
+ food.x * size + size/2 - appleSize/2,
+ food.y * size + size/2 - appleSize/2,
+ appleSize,
+ appleSize
+);
 
   for (const p of Object.values(players)) {
     ctx.fillStyle = p.color || '#22c55e';
     for (const seg of p.snake) {
-      ctx.fillRect(seg.x * size + 2, seg.y * size + 2, size - 4, size - 4);
+      let small = size / 4;
+
+ctx.fillRect(
+ seg.x * size + size/2 - small/2,
+ seg.y * size + size/2 - small/2,
+ small,
+ small
+);
     }
     if (p.snake[0]) {
       ctx.fillStyle = '#fff';
@@ -217,7 +247,11 @@ function stepLocal() {
 }
 
 function gameLoop() {
+
+  if(paused) return;
+
   if (mode === 'offline') stepLocal();
+
   draw();
 }
 
