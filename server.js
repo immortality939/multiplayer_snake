@@ -33,8 +33,8 @@ function randomFood() {
 }
 
 function spawnSnake(id) {
-  const x = Math.floor(Math.random() * WIDTH);
-const y = Math.floor(Math.random() * HEIGHT);
+  const x = Math.floor(Math.random() * (WIDTH - 6)) + 3;
+const y = Math.floor(Math.random() * (HEIGHT - 6)) + 3;
   return {
     id,
     color: COLORS[(id - 1) % COLORS.length],
@@ -92,10 +92,10 @@ function step() {
     if (p.dir === 'right') head.x++;
 
     if (
-  head.x <= 0 ||
-  head.x >= WIDTH - 1 ||
-  head.y <= 0 ||
-  head.y >= HEIGHT - 1
+  head.x < 0 ||
+  head.x >= WIDTH ||
+  head.y < 0 ||
+  head.y >= HEIGHT
 )
 {
   p.alive = false;

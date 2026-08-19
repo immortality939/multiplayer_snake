@@ -14,7 +14,6 @@ let gridWidth = 36;
 let gridHeight = 40;
 let size = 10;
 const drawSize = 10;
-const drawSize = 10;
 let players = {};
 let food = { x: 0, y: 0 };
 
@@ -131,15 +130,6 @@ restartBtn.onclick = () => {
 
 function drawGrid() {
 
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 3;
-
-  ctx.strokeRect(
-    4,
-    4,
-    canvas.width - 8,
-    canvas.height - 8
-  );
 }
 
 function drawSnake(snake, color) {
@@ -198,7 +188,7 @@ function drawApple() {
   ctx.arc(
     food.x * drawSize + drawSize / 2,
     food.y * drawSize + drawSize / 2,
-    drawSize * 0.22,
+    drawSize * 0.35,
     0,
     Math.PI * 2
   );
@@ -261,10 +251,10 @@ function stepLocal() {
   if (localDir === 'right') head.x++;
 
   if (
-  head.x < 1 ||
-  head.x >= gridWidth - 1 ||
-  head.y < 1 ||
-  head.y >= gridHeight - 1
+  head.x < 0 ||
+  head.x >= gridWidth ||
+  head.y < 0 ||
+  head.y >= gridHeight
 ) {
     localAlive = false;
     setStatus('Game Over');
