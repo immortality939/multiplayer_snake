@@ -12,6 +12,7 @@ let myId = null;
 
 let grid = 20;
 let size = 30;
+const drawSize = 10;
 let players = {};
 let food = { x: 0, y: 0 };
 
@@ -125,45 +126,62 @@ restartBtn.onclick = () => {
 };
 
 function drawGrid() {
-  // cleaner border only (no small grid lines)
+
   ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+  ctx.lineWidth = 8;
+
+  ctx.strokeRect(
+    4,
+    4,
+    canvas.width - 8,
+    canvas.height - 8
+  );
 }
 
 function drawSnake(snake, color) {
-  if (!snake) return;
+  if (!snake || snake.length === 0) return;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = drawSize * 0.35; // thinner snake
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.beginPath();
+
+  for (let i = snake.length - 1; i >= 0; i--) {
+
+    const seg = snake[i];
+
+    const x = seg.x * drawSize + drawSize / 2;
+    const y = seg.y * drawSize + drawSize / 2;
+
+    if (i === snake.length - 1) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  ctx.stroke();
+
+
+  // head
+  const head = snake[0];
+
+  const hx = head.x * drawSize + drawSize / 2;
+  const hy = head.y * drawSize + drawSize / 2;
 
   ctx.fillStyle = color;
 
-  for (let i = 0; i < snake.length; i++) {
-    const seg = snake[i];
-
-    // convert server grid position to visual position
-    const x = seg.x * size;
-    const y = seg.y * size;
-
-    if (i === 0) {
-      // round head
-      ctx.beginPath();
-      ctx.arc(
-        x + size / 2,
-        y + size / 2,
-        size / 2 - 2,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    } else {
-      // smaller body blocks
-      ctx.fillRect(
-        x + 3,
-        y + 3,
-        size - 6,
-        size - 6
-      );
-    }
-  }
+  ctx.beginPath();
+  ctx.arc(
+    hx,
+    hy,
+    drawSize * 0.25,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
 }
 
 function drawApple() {
@@ -172,13 +190,15 @@ function drawApple() {
   ctx.fillStyle = "#ef4444";
 
   ctx.beginPath();
+
   ctx.arc(
-    food.x * size + size / 2,
-    food.y * size + size / 2,
-    size / 3,
+    food.x * drawSize + drawSize / 2,
+    food.y * drawSize + drawSize / 2,
+    drawSize * 0.22,
     0,
     Math.PI * 2
   );
+
   ctx.fill();
 }
 
@@ -269,9 +289,16 @@ function gameLoop() {
 }
 
 function init() {
+
+  canvas.width = 360;
+  canvas.height = 400;
+
   food = randomFood();
+
   draw();
+
   connectSocket();
+
   setInterval(gameLoop, 120);
 }
 
