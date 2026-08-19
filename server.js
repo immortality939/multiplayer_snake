@@ -15,8 +15,9 @@ app.get('/', (req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const GRID = 20;
-const SIZE = 30;
+const WIDTH = 36;
+const HEIGHT = 40;
+const SIZE = 10;
 const TICK = 120;
 const COLORS = ['#ff4d4d', '#4dd2ff', '#7dff4d', '#ffd24d', '#d64dff', '#ff7fbf'];
 
@@ -25,12 +26,15 @@ let players = {};
 let food = randomFood();
 
 function randomFood() {
-  return { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) };
+  return {
+    x: Math.floor(Math.random() * WIDTH),
+    y: Math.floor(Math.random() * HEIGHT)
+  };
 }
 
 function spawnSnake(id) {
-  const x = Math.floor(Math.random() * GRID);
-  const y = Math.floor(Math.random() * GRID);
+  const x = Math.floor(Math.random() * WIDTH);
+const y = Math.floor(Math.random() * HEIGHT);
   return {
     id,
     color: COLORS[(id - 1) % COLORS.length],
@@ -87,7 +91,12 @@ function step() {
     if (p.dir === 'left') head.x--;
     if (p.dir === 'right') head.x++;
 
-    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+    if (
+  head.x < 0 ||
+  head.x >= WIDTH ||
+  head.y < 0 ||
+  head.y >= HEIGHT
+) {
       p.alive = false;
       continue;
     }
@@ -121,7 +130,13 @@ wss.on('connection', (ws) => {
   const id = nextId++;
   players[id] = spawnSnake(id);
 
-  ws.send(JSON.stringify({ type: 'init', id, grid: GRID, size: SIZE }));
+  ws.send(JSON.stringify({
+  type: 'init',
+  id,
+  width: WIDTH,
+  height: HEIGHT,
+  size: SIZE
+}));
   broadcast();
 
   ws.on('message', (msg) => {
