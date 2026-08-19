@@ -2,6 +2,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restart');
+const controlButtons = document.querySelectorAll('.controls button');
 
 let ws;
 let myId = null;
@@ -48,6 +49,16 @@ document.addEventListener('keydown', (e) => {
   if (key === 'arrowdown' || key === 's') sendDir('down');
   if (key === 'arrowleft' || key === 'a') sendDir('left');
   if (key === 'arrowright' || key === 'd') sendDir('right');
+});
+
+controlButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    sendDir(btn.dataset.dir);
+  });
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    sendDir(btn.dataset.dir);
+  }, { passive: false });
 });
 
 restartBtn.onclick = () => {
