@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: multiplayer-snake
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
