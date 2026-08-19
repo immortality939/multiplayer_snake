@@ -4,23 +4,62 @@ const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restart');
 const controlButtons = document.querySelectorAll('.controls button');
 
-let ws;
+let ws = null;
+let mode = 'offline';
 let myId = null;
+
 let grid = 20;
 let size = 30;
 let players = {};
 let food = { x: 0, y: 0 };
 
-function connect() {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}`);
+let localSnake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+let localDir = 'right';
+let localNextDir = 'right';
+let localGrow = 0;
+let localScore = 0;
+let localAlive = true;
 
-  ws.onopen = () => statusEl.textContent = 'Connected';
-  ws.onclose = () => {
-    statusEl.textContent = 'Disconnected, reconnecting...';
-    setTimeout(connect, 1000);
+function setStatus(text) {
+  if (statusEl) statusEl.textContent = text;
+}
+
+function randomFood() {
+  return { x: Math.floor(Math.random() * grid), y: Math.floor(Math.random() * grid) };
+}
+
+function setDir(current, next) {
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  if (next && next !== opposite[current]) return next;
+  return current;
+}
+
+function resetLocalGame() {
+  localSnake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  localDir = 'right';
+  localNextDir = 'right';
+  localGrow = 0;
+  localScore = 0;
+  localAlive = true;
+  food = randomFood();
+  draw();
+}
+
+function connectSocket() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${proto}//${location.host}`;
+
+  try {
+    ws = new WebSocket(url);
+  } catch (e) {
+    startOffline();
+    return;
+  }
+
+  ws.onopen = () => {
+    mode = 'online';
+    setStatus('Connected');
   };
-  ws.onerror = () => statusEl.textContent = 'Connection error';
 
   ws.onmessage = (ev) => {
     const data = JSON.parse(ev.data);
@@ -28,6 +67,8 @@ function connect() {
       myId = data.id;
       grid = data.grid;
       size = data.size;
+      mode = 'online';
+      setStatus('Connected');
     }
     if (data.type === 'state') {
       players = data.players;
@@ -35,11 +76,35 @@ function connect() {
       draw();
     }
   };
+
+  ws.onerror = () => {
+    startOffline();
+  };
+
+  ws.onclose = () => {
+    if (mode === 'online') {
+      startOffline();
+    }
+  };
+}
+
+function startOffline() {
+  if (mode !== 'offline') {
+    mode = 'offline';
+    setStatus('Offline');
+    resetLocalGame();
+    return;
+  }
+  mode = 'offline';
+  setStatus('Offline');
+  resetLocalGame();
 }
 
 function sendDir(dir) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  if (mode === 'online' && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'dir', dir }));
+  } else {
+    localNextDir = dir;
   }
 }
 
@@ -52,18 +117,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 controlButtons.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    sendDir(btn.dataset.dir);
-  });
+  const dir = btn.dataset.dir;
+  btn.addEventListener('click', () => sendDir(dir));
   btn.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    sendDir(btn.dataset.dir);
+    sendDir(dir);
   }, { passive: false });
 });
 
 restartBtn.onclick = () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  if (mode === 'online' && ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'restart' }));
+  } else {
+    resetLocalGame();
   }
 };
 
@@ -82,10 +148,21 @@ function drawGrid() {
   }
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawGrid();
+function drawLocal() {
+  ctx.fillStyle = '#ef4444';
+  ctx.fillRect(food.x * size, food.y * size, size, size);
 
+  ctx.fillStyle = '#22c55e';
+  for (const seg of localSnake) {
+    ctx.fillRect(seg.x * size + 2, seg.y * size + 2, size - 4, size - 4);
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px Arial';
+  ctx.fillText(`Score ${localScore}`, 8, 16);
+}
+
+function drawOnline() {
   ctx.fillStyle = '#ef4444';
   ctx.fillRect(food.x * size, food.y * size, size, size);
 
@@ -102,5 +179,67 @@ function draw() {
   }
 }
 
-connect();
-draw();
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+
+  if (mode === 'online' && Object.keys(players).length) {
+    drawOnline();
+  } else {
+    drawLocal();
+  }
+}
+
+function stepLocal() {
+  if (!localAlive) return;
+
+  localDir = setDir(localDir, localNextDir);
+  const head = { ...localSnake[0] };
+
+  if (localDir === 'up') head.y--;
+  if (localDir === 'down') head.y++;
+  if (localDir === 'left') head.x--;
+  if (localDir === 'right') head.x++;
+
+  if (head.x < 0 || head.x >= grid || head.y < 0 || head.y >= grid) {
+    localAlive = false;
+    setStatus('Game Over');
+    draw();
+    return;
+  }
+
+  const selfHit = localSnake.slice(1).some(s => s.x === head.x && s.y === head.y);
+  if (selfHit) {
+    localAlive = false;
+    setStatus('Game Over');
+    draw();
+    return;
+  }
+
+  localSnake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    localScore += 1;
+    localGrow += 2;
+    food = randomFood();
+  }
+
+  if (localGrow > 0) localGrow--;
+  else localSnake.pop();
+}
+
+function gameLoop() {
+  if (mode === 'offline') {
+    stepLocal();
+  }
+  draw();
+}
+
+function init() {
+  food = randomFood();
+  draw();
+  connectSocket();
+  setInterval(gameLoop, 120);
+}
+
+init();
