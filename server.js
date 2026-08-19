@@ -33,8 +33,9 @@ function randomFood() {
 }
 
 function spawnSnake(id) {
-  const x = Math.floor(Math.random() * (WIDTH - 6)) + 3;
-const y = Math.floor(Math.random() * (HEIGHT - 6)) + 3;
+  const x = Math.floor(WIDTH / 2);
+  const y = Math.floor(HEIGHT / 2);
+
   return {
     id,
     color: COLORS[(id - 1) % COLORS.length],
@@ -45,8 +46,8 @@ const y = Math.floor(Math.random() * (HEIGHT - 6)) + 3;
     grow: 0,
     snake: [
       { x, y },
-      { x: Math.max(0, x - 1), y },
-      { x: Math.max(0, x - 2), y }
+      { x: x - 1, y },
+      { x: x - 2, y }
     ]
   };
 }
