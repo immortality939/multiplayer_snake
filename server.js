@@ -92,7 +92,7 @@ function step() {
     if (p.dir === 'left') head.x--;
     if (p.dir === 'right') head.x++;
 
-    if (
+if (
   head.x < 0 ||
   head.x >= WIDTH ||
   head.y < 0 ||
@@ -101,10 +101,7 @@ function step() {
 {
   p.alive = false;
   continue;
-} {
-      p.alive = false;
-      continue;
-    }
+}
 
     const hitsSelf = p.snake.slice(1).some(s => s.x === head.x && s.y === head.y);
     const hitsOther = Object.values(players).some(other =>
