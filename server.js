@@ -15,9 +15,9 @@ app.get('/', (req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const WIDTH = 36;
-const HEIGHT = 40;
-const SIZE = 10;
+const WIDTH = 72;
+const HEIGHT = 80;
+const SIZE = 5;
 const TICK = 120;
 const COLORS = ['#ff4d4d', '#4dd2ff', '#7dff4d', '#ffd24d', '#d64dff', '#ff7fbf'];
 
