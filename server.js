@@ -1,19 +1,25 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const WebSocket = require('ws');
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-app.use(express.static('public'));
+app.use(express.static(__dirname));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const wss = new WebSocket.Server({ server });
+
 const GRID = 20;
 const SIZE = 30;
 const TICK = 120;
-
 const COLORS = ['#ff4d4d', '#4dd2ff', '#7dff4d', '#ffd24d', '#d64dff', '#ff7fbf'];
+
 let nextId = 1;
 let players = {};
 let food = randomFood();
@@ -72,6 +78,7 @@ function setDir(current, next) {
 function step() {
   for (const p of Object.values(players)) {
     if (!p.alive) continue;
+
     p.dir = setDir(p.dir, p.nextDir);
     const head = { ...p.snake[0] };
 
@@ -133,4 +140,6 @@ wss.on('connection', (ws) => {
 
 setInterval(step, TICK);
 
-server.listen(PORT, () => console.log(`Listening on ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Listening on ${PORT}`);
+});
