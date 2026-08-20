@@ -31,6 +31,7 @@ const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const pauseBtn = document.getElementById('pause');
 const restartBtn = document.getElementById('restart');
+const menuBtn = document.getElementById('menuBtn');
 const gameOverLogo = document.getElementById('gameOverLogo');
 const controlButtons = document.querySelectorAll('.controls button');
 
@@ -91,7 +92,14 @@ function playIntroMusic() {
   if (!introMusic) return;
 
   introMusic.volume = 0.35;
-  introMusic.play().catch(() => {});
+
+  const attempt = introMusic.play();
+
+  if (attempt !== undefined) {
+    attempt.catch(() => {
+      console.log('Intro music requires user interaction.');
+    });
+  }
 }
 
 function stopIntroMusic() {
@@ -511,7 +519,10 @@ function togglePause() {
       return;
     }
 
-    send({ type: 'pause' });
+    send({
+      type: isPaused ? 'resume' : 'pause'
+    });
+
     return;
   }
 
@@ -534,7 +545,33 @@ restartBtn.addEventListener('click', () => {
   resetLocalGame();
   playGameMusic();
 });
+menuBtn.addEventListener('click', () => {
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
 
+  stopGameMusic();
+
+  if (gameOverSound) {
+    gameOverSound.pause();
+    gameOverSound.currentTime = 0;
+  }
+
+  gameOverLogo.classList.remove('show');
+
+  mode = 'menu';
+  isHost = false;
+  myId = null;
+  currentRoom = '';
+  isReady = false;
+  isPaused = false;
+  players = {};
+
+  setStatus('Ready');
+  showScreen(mainMenu);
+  playIntroMusic();
+});
 document.addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
 
@@ -795,6 +832,7 @@ function gameLoop() {
 
 singlePlayerBtn.focus();
 showScreen(mainMenu);
+playIntroMusic();
 connectSocket();
 
 canvas.width = 360;

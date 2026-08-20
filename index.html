@@ -10,13 +10,13 @@
   <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
-  <audio
-    id="introMusic"
-    src="snakeintro.mp3"
-    loop
-    preload="auto">
-  </audio>
+<audio
+  id="introMusic"
+  src="snakeintro.mp3"
+  loop
+  autoplay
+  preload="auto">
+</audio>
 
   <audio
     id="bgMusic"
@@ -120,10 +120,10 @@
           <div id="status">Connecting...</div>
 
           <div class="action-buttons">
-            <button id="pause" type="button">Pause</button>
-            <button id="restart" type="button">Restart</button>
-          </div>
-        </div>
+  <button id="pause" type="button">Pause</button>
+  <button id="restart" type="button">Restart</button>
+  <button id="menuBtn" type="button">Menu</button>
+</div>
 
         <div class="canvas-wrap">
           <canvas id="game" width="600" height="600"></canvas>
