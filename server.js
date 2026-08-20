@@ -33,14 +33,18 @@ const rooms = new Map();
 
 function cleanText(value, fallback) {
   const text = String(value || '').trim();
-  return text ? text.slice(0, 18) : fallback;
+
+  if (!text) {
+    return fallback;
+  }
+
+  return text.slice(0, 18);
 }
 
-function randomFood(type = 'red') {
+function randomFood() {
   return {
     x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT),
-    type
+    y: Math.floor(Math.random() * HEIGHT)
   };
 }
 
@@ -80,14 +84,13 @@ function createRoom(roomName, player) {
     hostId: player.id,
     started: false,
     paused: false,
-    food: [randomFood('red')],
-    players: new Map(),
-    blueTimer: null,
-    greenTimer: null
+    food: randomFood(),
+    players: new Map()
   };
 
   room.players.set(player.id, player);
   player.roomName = roomName;
+
   rooms.set(roomName, room);
 
   return room;
@@ -116,25 +119,6 @@ function send(ws, data) {
   }
 }
 
-function broadcastRoom(room, data) {
-  const message = JSON.stringify(data);
-
-  for (const player of room.players.values()) {
-    if (player.ws.readyState === WebSocket.OPEN) {
-      player.ws.send(message);
-    }
-  }
-}
-
-function broadcastGameState(room) {
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused
-  });
-}
-
 function roomState(room) {
   return {
     type: 'roomState',
@@ -144,6 +128,16 @@ function roomState(room) {
     paused: room.paused,
     players: publicPlayers(room)
   };
+}
+
+function broadcastRoom(room, data) {
+  const message = JSON.stringify(data);
+
+  for (const player of room.players.values()) {
+    if (player.ws.readyState === WebSocket.OPEN) {
+      player.ws.send(message);
+    }
+  }
 }
 
 function broadcastRoomState(room) {
@@ -177,13 +171,16 @@ function setDirection(player, direction) {
     right: 'left'
   };
 
-  if (direction && direction !== opposite[player.dir]) {
+  if (
+    direction &&
+    direction !== opposite[player.dir]
+  ) {
     player.nextDir = direction;
   }
 }
 
 function resetRoomGame(room) {
-  room.food = [randomFood('red')];
+  room.food = randomFood();
   room.paused = false;
 
   for (const player of room.players.values()) {
@@ -196,31 +193,12 @@ function resetRoomGame(room) {
   }
 }
 
-function startSpecialAppleTimers(room) {
-  clearInterval(room.blueTimer);
-  clearInterval(room.greenTimer);
-
-  room.blueTimer = setInterval(() => {
-    if (!room.started || room.paused) return;
-
-    room.food.push(randomFood('blue'));
-    broadcastGameState(room);
-  }, 5000);
-
-  room.greenTimer = setInterval(() => {
-    if (!room.started || room.paused) return;
-
-    room.food.push(randomFood('green'));
-    broadcastGameState(room);
-  }, 10000);
-}
-
 function startRoom(room) {
+  if (room.players.size < 1) return;
   if (!allJoinersReady(room)) return;
 
   room.started = true;
   resetRoomGame(room);
-  startSpecialAppleTimers(room);
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -243,7 +221,10 @@ function movePlayer(room, player) {
     right: 'left'
   };
 
-  if (player.nextDir && player.nextDir !== opposite[player.dir]) {
+  if (
+    player.nextDir &&
+    player.nextDir !== opposite[player.dir]
+  ) {
     player.dir = player.nextDir;
   }
 
@@ -262,13 +243,17 @@ function movePlayer(room, player) {
 
   const hitsSelf = player.snake
     .slice(1)
-    .some((segment) => segment.x === head.x && segment.y === head.y);
+    .some((segment) =>
+      segment.x === head.x &&
+      segment.y === head.y
+    );
 
   const hitsOther = Array.from(room.players.values())
     .filter((other) => other.id !== player.id && other.alive)
     .some((other) =>
       other.snake.some((segment) =>
-        segment.x === head.x && segment.y === head.y
+        segment.x === head.x &&
+        segment.y === head.y
       )
     );
 
@@ -279,24 +264,13 @@ function movePlayer(room, player) {
 
   player.snake.unshift(head);
 
-  const foodIndex = room.food.findIndex((apple) =>
-    apple.x === head.x && apple.y === head.y
-  );
-
-  if (foodIndex !== -1) {
-    const eatenFood = room.food[foodIndex];
-
+  if (
+    head.x === room.food.x &&
+    head.y === room.food.y
+  ) {
     player.score++;
-
-    if (eatenFood.type === 'blue') {
-      player.grow += 8;
-    } else if (eatenFood.type === 'green') {
-      player.grow += 15;
-    } else {
-      player.grow += 2;
-    }
-
-    room.food.splice(foodIndex, 1);
+    player.grow += 2;
+    room.food = randomFood();
   }
 
   if (player.grow > 0) {
@@ -313,7 +287,12 @@ function gameStep(room) {
     movePlayer(room, player);
   }
 
-  broadcastGameState(room);
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused
+  });
 }
 
 function removePlayer(player) {
@@ -324,14 +303,13 @@ function removePlayer(player) {
   room.players.delete(player.id);
 
   if (room.players.size === 0) {
-    clearInterval(room.blueTimer);
-    clearInterval(room.greenTimer);
     rooms.delete(room.name.toLowerCase());
     return;
   }
 
   if (room.hostId === player.id) {
     const newHost = room.players.values().next().value;
+
     room.hostId = newHost.id;
 
     for (const other of room.players.values()) {
@@ -352,7 +330,9 @@ wss.on('connection', (ws) => {
     player: null
   };
 
-  send(ws, { type: 'connected' });
+  send(ws, {
+    type: 'connected'
+  });
 
   ws.on('message', (rawMessage) => {
     try {
@@ -372,6 +352,7 @@ wss.on('connection', (ws) => {
 
         const player = createPlayer(ws, name, true);
         const room = createRoom(roomName.toLowerCase(), player);
+
         client.player = player;
 
         send(ws, {
@@ -396,7 +377,10 @@ wss.on('connection', (ws) => {
         const room = getRoom(roomName);
 
         if (!room) {
-          send(ws, { type: 'error', message: 'Room not found.' });
+          send(ws, {
+            type: 'error',
+            message: 'Room not found.'
+          });
           return;
         }
 
@@ -434,10 +418,10 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const player = client.player;
-      const room = player && getRoom(player.roomName);
-
       if (data.type === 'ready') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
         if (!room || player.host) return;
 
         player.ready = !player.ready;
@@ -446,6 +430,9 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'startRoom') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
         if (!room || !player.host) return;
 
         if (!allJoinersReady(room)) {
@@ -461,22 +448,47 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'pause') {
-        if (!room || !room.started || !player.host) return;
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
+        if (!room || !room.started || !player.host) {
+          return;
+        }
 
         room.paused = !room.paused;
-        broadcastGameState(room);
+
+        broadcastRoom(room, {
+          type: 'state',
+          players: publicPlayers(room),
+          food: room.food,
+          paused: room.paused
+        });
+
         return;
       }
 
       if (data.type === 'restart') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
         if (!room || !room.started || !player.host) return;
 
         resetRoomGame(room);
-        broadcastGameState(room);
+
+        broadcastRoom(room, {
+          type: 'state',
+          players: publicPlayers(room),
+          food: room.food,
+          paused: room.paused
+        });
+
         return;
       }
 
       if (data.type === 'dir') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
         if (!room || !room.started || room.paused) return;
 
         setDirection(player, data.dir);
