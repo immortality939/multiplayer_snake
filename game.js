@@ -212,11 +212,7 @@ function connectSocket() {
 
 function normalizeFood(foodData) {
   if (Array.isArray(foodData)) {
-    return foodData.filter((apple) =>
-      apple &&
-      Number.isFinite(apple.x) &&
-      Number.isFinite(apple.y)
-    );
+    return foodData;
   }
 
   if (
@@ -237,7 +233,7 @@ function normalizeFood(foodData) {
 }
 
 function handleServerMessage(data) {
-  if (!data || typeof data.type !== 'string') {
+  if (!data || !data.type) {
     return;
   }
 
@@ -540,6 +536,82 @@ function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
 }
 
+function setDirection(current, next) {
+  const opposite = {
+    up: 'down',
+    down: 'up',
+    left: 'right',
+    right: 'left'
+  };
+
+  if (next && next !== opposite[current]) {
+    return next;
+  }
+
+  return current;
+}
+
+function resetLocalGame() {
+  localSnake = [
+    { x: 10, y: 10 },
+    { x: 9, y: 10 },
+    { x: 8, y: 10 }
+  ];
+
+  localDir = 'right';
+  localNextDir = 'right';
+  localGrow = 0;
+  localScore = 0;
+  localAlive = true;
+  localGameOverShown = false;
+  isPaused = false;
+  food = [randomFood('red')];
+
+  gameOverLogo.classList.remove('show');
+
+  if (gameOverSound) {
+    gameOverSound.pause();
+    gameOverSound.currentTime = 0;
+  }
+
+  updatePauseButton();
+  setStatus('Offline');
+  draw();
+}
+
+function showOfflineGameOver() {
+  if (localGameOverShown) return;
+
+  localGameOverShown = true;
+  localAlive = false;
+
+  stopOfflineAppleTimers();
+  stopGameMusic();
+  playGameOverSound();
+
+  setStatus('Game Over');
+  gameOverLogo.classList.add('show');
+  draw();
+}
+
+function sendDirection(direction) {
+  if (
+    isPaused ||
+    localGameOverShown
+  ) {
+    return;
+  }
+
+  if (mode === 'online') {
+    send({
+      type: 'dir',
+      dir: direction
+    });
+  } else if (mode === 'offline') {
+    localNextDir = direction;
+  }
+}
+
 function togglePause() {
   if (mode === 'online') {
     if (!isHost) {
@@ -670,10 +742,6 @@ controlButtons.forEach((button) => {
   });
 
   button.addEventListener('pointercancel', () => {
-    button.classList.remove('pressed');
-  });
-
-  button.addEventListener('pointerleave', () => {
     button.classList.remove('pressed');
   });
 });
@@ -833,49 +901,6 @@ function draw() {
   }
 }
 
-function resetLocalGame() {
-  localSnake = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 }
-  ];
-
-  localDir = 'right';
-  localNextDir = 'right';
-  localGrow = 0;
-  localScore = 0;
-  localAlive = true;
-  localGameOverShown = false;
-  isPaused = false;
-  food = [randomFood('red')];
-
-  gameOverLogo.classList.remove('show');
-
-  if (gameOverSound) {
-    gameOverSound.pause();
-    gameOverSound.currentTime = 0;
-  }
-
-  updatePauseButton();
-  setStatus('Offline');
-  draw();
-}
-
-function showOfflineGameOver() {
-  if (localGameOverShown) return;
-
-  localGameOverShown = true;
-  localAlive = false;
-  setStatus('Game Over');
-
-  stopOfflineAppleTimers();
-  stopGameMusic();
-  playGameOverSound();
-
-  gameOverLogo.classList.add('show');
-  draw();
-}
-
 function stepLocal() {
   if (
     isPaused ||
@@ -948,24 +973,6 @@ function stepLocal() {
     localGrow--;
   } else {
     localSnake.pop();
-  }
-}
-
-function sendDirection(direction) {
-  if (
-    isPaused ||
-    localGameOverShown
-  ) {
-    return;
-  }
-
-  if (mode === 'online') {
-    send({
-      type: 'dir',
-      dir: direction
-    });
-  } else if (mode === 'offline') {
-    localNextDir = direction;
   }
 }
 
