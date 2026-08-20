@@ -2,6 +2,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restart');
+const pauseBtn = document.getElementById('pause');
 const controlButtons = document.querySelectorAll('.controls button');
 
 const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
@@ -9,6 +10,7 @@ const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
 let ws = null;
 let mode = 'offline';
 let myId = null;
+let isPaused = false;
 
 let gridWidth = 72;
 let gridHeight = 80;
@@ -102,7 +104,21 @@ function sendDir(dir) {
     localNextDir = dir;
   }
 }
+function togglePause() {
+  isPaused = !isPaused;
 
+  pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+
+  if (isPaused) {
+    setStatus('Paused');
+  } else {
+    setStatus(mode === 'online' ? 'Connected' : 'Offline');
+  }
+
+  draw();
+}
+
+pauseBtn.addEventListener('click', togglePause);
 document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (key === 'arrowup' || key === 'w') sendDir('up');
@@ -113,11 +129,26 @@ document.addEventListener('keydown', (e) => {
 
 controlButtons.forEach((btn) => {
   const dir = btn.dataset.dir;
-  btn.addEventListener('click', () => sendDir(dir));
-  btn.addEventListener('touchstart', (e) => {
+
+  const pressControl = (e) => {
     e.preventDefault();
+    btn.classList.add('pressed');
     sendDir(dir);
-  }, { passive: false });
+
+    if (btn.setPointerCapture && e.pointerId !== undefined) {
+      btn.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const releaseControl = (e) => {
+    e.preventDefault();
+    btn.classList.remove('pressed');
+  };
+
+  btn.addEventListener('pointerdown', pressControl);
+  btn.addEventListener('pointerup', releaseControl);
+  btn.addEventListener('pointercancel', releaseControl);
+  btn.addEventListener('lostpointercapture', releaseControl);
 });
 
 restartBtn.onclick = () => {
@@ -294,7 +325,12 @@ function stepLocal() {
 }
 
 function gameLoop() {
-  if (mode === 'offline') stepLocal();
+  if (isPaused) return;
+
+  if (mode === 'offline') {
+    stepLocal();
+  }
+
   draw();
 }
 

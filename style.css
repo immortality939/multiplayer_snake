@@ -19,11 +19,6 @@ body {
   text-align: center;
 }
 
-h1 {
-  margin: 10px 0 14px;
-  font-size: 28px;
-}
-
 canvas {
   background: #111827;
   border: 2px solid #334155;
@@ -45,23 +40,100 @@ canvas {
   flex-wrap: wrap;
 }
 
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 button {
-  padding: 10px 16px;
-  border: 0;
-  border-radius: 10px;
-  background: #22c55e;
-  color: #081018;
+  font-family: Arial, sans-serif;
   font-weight: 700;
   cursor: pointer;
-  min-width: 88px;
 }
 
-button:hover {
-  filter: brightness(1.05);
+#pause,
+#restart {
+  min-width: 105px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
 }
 
-button:active {
-  transform: scale(0.98);
+/* Blue pause button */
+#pause {
+  border: 2px solid #93c5fd;
+  background: linear-gradient(
+    135deg,
+    #38bdf8 0%,
+    #2563eb 50%,
+    #1e3a8a 100%
+  );
+  box-shadow:
+    0 4px 0 #172554,
+    0 0 10px rgba(59, 130, 246, 0.8),
+    inset 0 1px 2px rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 2px #172554;
+}
+
+#pause:hover {
+  filter: brightness(1.15);
+  box-shadow:
+    0 4px 0 #172554,
+    0 0 18px rgba(96, 165, 250, 1),
+    inset 0 1px 3px rgba(255, 255, 255, 0.65);
+}
+
+#pause:active {
+  transform: translateY(3px) scale(0.97);
+  box-shadow:
+    0 1px 0 #172554,
+    0 0 8px rgba(59, 130, 246, 0.7),
+    inset 0 2px 4px rgba(0, 20, 80, 0.45);
+}
+
+/* Red restart button */
+#restart {
+  border: 2px solid #ff8a8a;
+  background: linear-gradient(
+    135deg,
+    #ff3030 0%,
+    #dc2626 45%,
+    #991b1b 100%
+  );
+  box-shadow:
+    0 4px 0 #650f0f,
+    0 0 10px rgba(255, 50, 50, 0.75),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 2px #500000;
+}
+
+#restart:hover {
+  filter: brightness(1.15);
+  box-shadow:
+    0 4px 0 #650f0f,
+    0 0 18px rgba(255, 70, 70, 1),
+    inset 0 1px 3px rgba(255, 255, 255, 0.6);
+}
+
+#restart:active {
+  transform: translateY(3px) scale(0.97);
+  box-shadow:
+    0 1px 0 #650f0f,
+    0 0 8px rgba(255, 50, 50, 0.7),
+    inset 0 2px 4px rgba(80, 0, 0, 0.45);
+}
+
+#pause:focus-visible,
+#restart:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
 }
 
 #status {
@@ -70,28 +142,54 @@ button:active {
 
 .controls {
   display: grid;
-  grid-template-columns: 72px 72px 72px;
-  grid-template-rows: 72px 72px 72px;
+  grid-template-columns: 75px 75px 75px;
+  grid-template-rows: 75px 75px 75px;
   justify-content: center;
-  gap: 8px;
-  margin-top: 8px;
+  column-gap: 35px;
+  row-gap: 35px;
+  margin-top: 30px;
+  padding: 10px;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
 }
 
 .controls button {
-  width: 72px;
-  height: 72px;
+  width: 75px;
+  height: 75px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
   font-size: 20px;
-  background: #1f2937;
-  color: #fff;
-  border: 1px solid #334155;
+  background: #dff7ff;
+  color: #075985;
+  border: 3px solid #ef4444;
   border-radius: 14px;
+  box-shadow: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.08s ease,
+    border-color 0.08s ease,
+    transform 0.08s ease;
 }
 
-.controls button:active {
-  transform: scale(0.95);
+.controls button:hover {
+  background: #c8f0ff;
+  border-color: #dc2626;
+}
+
+.controls button:active,
+.controls button.pressed {
+  background: #ffe0e0;
+  color: #991b1b;
+  border-color: #b91c1c;
+  transform: scale(0.94);
+}
+
+.controls button:focus-visible {
+  outline: 3px solid #fca5a5;
+  outline-offset: 4px;
 }
 
 .up {
@@ -114,28 +212,33 @@ button:active {
   grid-row: 2;
 }
 
-p {
-  margin: 14px 0 0;
-  opacity: 0.9;
-  line-height: 1.4;
-}
-
 @media (max-width: 480px) {
   .wrap {
     padding: 12px;
   }
 
-  h1 {
-    font-size: 24px;
+  .action-buttons {
+    gap: 7px;
+  }
+
+  #pause,
+  #restart {
+    min-width: 92px;
+    padding: 11px 12px;
+    font-size: 13px;
   }
 
   .controls {
-    grid-template-columns: 64px 64px 64px;
-    grid-template-rows: 64px 64px 64px;
+    grid-template-columns: 75px 75px 75px;
+    grid-template-rows: 75px 75px 75px;
+    column-gap: 28px;
+    row-gap: 28px;
+    margin-top: 28px;
+    padding: 8px;
   }
 
   .controls button {
-    width: 64px;
-    height: 64px;
+    width: 75px;
+    height: 75px;
   }
 }
