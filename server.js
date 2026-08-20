@@ -116,7 +116,7 @@ function createSnake(playerId) {
 }
 function getSpawnDirection(playerId) {
   const directions = {
-    1: 'left',
+    1: 'right',
     2: 'down',
     3: 'left',
     4: 'up'
