@@ -251,7 +251,7 @@ function startFoodTimers(room) {
       food: room.food,
       paused: room.paused
     });
-  }, 5000);
+  }, 8000);
 
   room.greenTimer = setInterval(() => {
     if (
@@ -269,7 +269,7 @@ function startFoodTimers(room) {
       food: room.food,
       paused: room.paused
     });
-  }, 20000);
+  }, 16000);
 }
 
 function startRoom(room) {

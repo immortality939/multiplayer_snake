@@ -404,7 +404,7 @@ function startOfflineAppleTimers() {
 
     food.push(randomFood('blue'));
     draw();
-  }, 5000);
+  }, 8000);
 
   offlineGreenTimer = setInterval(() => {
     if (
@@ -417,7 +417,7 @@ function startOfflineAppleTimers() {
 
     food.push(randomFood('green'));
     draw();
-  }, 20000);
+  }, 16000);
 }
 
 function stopOfflineAppleTimers() {
