@@ -1,545 +1,988 @@
-const express = require('express');
-const http = require('http');
-const path = require('path');
-const WebSocket = require('ws');
+const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const mainMenu = document.getElementById('mainMenu');
+const multiplayerMenu = document.getElementById('multiplayerMenu');
+const roomScreen = document.getElementById('roomScreen');
+const gameScreen = document.getElementById('gameScreen');
 
-const PORT = process.env.PORT || 3000;
+const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+const multiplayerBtn = document.getElementById('multiplayerBtn');
+const backToMenuBtn = document.getElementById('backToMenuBtn');
 
-app.use(express.static(__dirname));
+const playerNameInput = document.getElementById('playerName');
+const createRoomNameInput = document.getElementById('createRoomName');
+const searchRoomNameInput = document.getElementById('searchRoomName');
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+const createRoomBtn = document.getElementById('createRoomBtn');
+const joinRoomBtn = document.getElementById('joinRoomBtn');
 
-const WIDTH = 72;
-const HEIGHT = 80;
-const SIZE = 5;
-const TICK = 120;
-const MAX_PLAYERS = 4;
+const roomTitle = document.getElementById('roomTitle');
+const playerList = document.getElementById('playerList');
+const readyBtn = document.getElementById('readyBtn');
+const startRoomBtn = document.getElementById('startRoomBtn');
+const leaveRoomBtn = document.getElementById('leaveRoomBtn');
 
-const COLORS = [
-  '#ff4d4d',
-  '#4dd2ff',
-  '#7dff4d',
-  '#ffd24d'
+const roomMessage = document.getElementById('roomMessage');
+const roomStatus = document.getElementById('roomStatus');
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const statusEl = document.getElementById('status');
+const pauseBtn = document.getElementById('pause');
+const restartBtn = document.getElementById('restart');
+const menuBtn = document.getElementById('menuBtn');
+const gameOverLogo = document.getElementById('gameOverLogo');
+const controlButtons = document.querySelectorAll('.controls button');
+
+const introMusic = document.getElementById('introMusic');
+const bgMusic = document.getElementById('bgMusic');
+const gameOverSound = document.getElementById('gameOverSound');
+
+const gameBackground = new Image();
+gameBackground.src = 'Sbackground.jpg';
+
+let ws = null;
+let mode = 'menu';
+let isHost = false;
+let myId = null;
+let currentRoom = '';
+let isReady = false;
+let isPaused = false;
+
+let players = {};
+
+let food = [
+  {
+    x: 10,
+    y: 10,
+    type: 'red'
+  }
 ];
 
-let nextId = 1;
-const rooms = new Map();
+let gridWidth = 72;
+let gridHeight = 80;
+let size = 5;
+const drawSize = 5;
 
-function cleanText(value, fallback) {
-  const text = String(value || '').trim();
+let localSnake = [
+  { x: 10, y: 10 },
+  { x: 9, y: 10 },
+  { x: 8, y: 10 }
+];
 
-  if (!text) {
-    return fallback;
+let localDir = 'right';
+let localNextDir = 'right';
+let localGrow = 0;
+let localScore = 0;
+let localAlive = true;
+let localGameOverShown = false;
+
+let offlineBlueTimer = null;
+let offlineGreenTimer = null;
+
+function showScreen(screen) {
+  mainMenu.classList.add('hidden');
+  multiplayerMenu.classList.add('hidden');
+  roomScreen.classList.add('hidden');
+  gameScreen.classList.add('hidden');
+
+  screen.classList.remove('hidden');
+}
+
+function setRoomMessage(message) {
+  roomMessage.textContent = message || '';
+}
+
+function setRoomStatus(message) {
+  roomStatus.textContent = message || '';
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
+
+function playIntroMusic() {
+  if (!introMusic) return;
+
+  introMusic.volume = 0.35;
+
+  const attempt = introMusic.play();
+
+  if (attempt !== undefined) {
+    attempt.catch(() => {
+      console.log('Intro music requires user interaction.');
+    });
+  }
+}
+
+function stopIntroMusic() {
+  if (!introMusic) return;
+
+  introMusic.pause();
+  introMusic.currentTime = 0;
+}
+
+function playGameMusic() {
+  if (!bgMusic) return;
+
+  bgMusic.volume = 0.35;
+  bgMusic.loop = true;
+  bgMusic.play().catch(() => {});
+}
+
+function stopGameMusic() {
+  if (!bgMusic) return;
+
+  bgMusic.pause();
+  bgMusic.currentTime = 0;
+}
+
+function playGameOverSound() {
+  if (!gameOverSound) return;
+
+  gameOverSound.currentTime = 0;
+  gameOverSound.play().catch(() => {});
+}
+
+function send(data) {
+  if (
+    ws &&
+    ws.readyState === WebSocket.OPEN
+  ) {
+    ws.send(JSON.stringify(data));
+    return true;
   }
 
-  return text.slice(0, 18);
+  return false;
+}
+
+function connectSocket() {
+  if (
+    ws &&
+    (
+      ws.readyState === WebSocket.OPEN ||
+      ws.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
+
+  try {
+    ws = new WebSocket(WS_URL);
+  } catch (error) {
+    setRoomMessage('Could not connect to server.');
+    return;
+  }
+
+  ws.onopen = () => {
+    if (
+      mode === 'menu' ||
+      mode === 'multiplayer-menu'
+    ) {
+      setRoomMessage('Connected.');
+    }
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleServerMessage(data);
+    } catch (error) {
+      console.error('Invalid server response:', error);
+      setRoomMessage('Invalid response from server.');
+    }
+  };
+
+  ws.onerror = () => {
+    setRoomMessage('Server connection error.');
+  };
+
+  ws.onclose = () => {
+    ws = null;
+
+    if (
+      mode === 'room' ||
+      mode === 'online'
+    ) {
+      setRoomStatus('Disconnected from server.');
+    }
+  };
+}
+
+function normalizeFood(foodData) {
+  if (Array.isArray(foodData)) {
+    return foodData.filter((apple) =>
+      apple &&
+      Number.isFinite(apple.x) &&
+      Number.isFinite(apple.y)
+    );
+  }
+
+  if (
+    foodData &&
+    Number.isFinite(foodData.x) &&
+    Number.isFinite(foodData.y)
+  ) {
+    return [
+      {
+        x: foodData.x,
+        y: foodData.y,
+        type: foodData.type || 'red'
+      }
+    ];
+  }
+
+  return [randomFood('red')];
+}
+
+function handleServerMessage(data) {
+  if (!data || typeof data.type !== 'string') {
+    return;
+  }
+
+  if (data.type === 'error') {
+    setRoomMessage(data.message || 'Something went wrong.');
+    setRoomStatus(data.message || 'Something went wrong.');
+    return;
+  }
+
+  if (data.type === 'connected') {
+    return;
+  }
+
+  if (data.type === 'roomJoined') {
+    currentRoom = data.room;
+    isHost = Boolean(data.host);
+    myId = data.playerId;
+    mode = 'room';
+
+    showScreen(roomScreen);
+    updateRoomButtons();
+    return;
+  }
+
+  if (data.type === 'roomState') {
+    currentRoom = data.room;
+    isPaused = Boolean(data.paused);
+
+    renderRoom(data);
+    return;
+  }
+
+  if (data.type === 'gameStart') {
+    mode = 'online';
+    isPaused = Boolean(data.paused);
+    players = convertPlayers(data.players);
+    food = normalizeFood(data.food);
+
+    gridWidth = data.width || gridWidth;
+    gridHeight = data.height || gridHeight;
+    size = data.size || size;
+
+    stopOfflineAppleTimers();
+    stopIntroMusic();
+    playGameMusic();
+    showScreen(gameScreen);
+    updatePauseButton();
+    setStatus('Connected');
+    draw();
+    return;
+  }
+
+  if (data.type === 'state') {
+    mode = 'online';
+    isPaused = Boolean(data.paused);
+    players = convertPlayers(data.players);
+    food = normalizeFood(data.food);
+
+    updatePauseButton();
+    setStatus(isPaused ? 'Paused' : 'Connected');
+    draw();
+  }
+}
+
+function convertPlayers(playerArray) {
+  const result = {};
+
+  for (const player of playerArray || []) {
+    result[player.id] = player;
+  }
+
+  return result;
+}
+
+function renderRoom(data) {
+  mode = 'room';
+  showScreen(roomScreen);
+
+  roomTitle.textContent = data.room;
+  playerList.innerHTML = '';
+
+  const playerArray = data.players || [];
+  const me = playerArray.find((player) => player.id === myId);
+
+  isReady = Boolean(me && me.ready);
+
+  for (let i = 0; i < 4; i++) {
+    const player = playerArray[i];
+    const row = document.createElement('div');
+
+    row.className = 'player-row';
+
+    if (!player) {
+      row.innerHTML = `
+        <span class="player-name">
+          PLAYER ${i + 1}: waiting...
+        </span>
+        <span class="player-badge"></span>
+      `;
+    } else {
+      const mark = player.host ? '🔴' : player.ready ? '🟢' : '';
+
+      row.innerHTML = `
+        <span class="player-name">
+          PLAYER ${i + 1}: ${escapeHtml(player.name)}
+        </span>
+        <span class="player-badge">${mark}</span>
+      `;
+    }
+
+    playerList.appendChild(row);
+  }
+
+  const allReady = playerArray.every(
+    (player) => player.host || player.ready
+  );
+
+  readyBtn.classList.toggle('hidden', isHost);
+  startRoomBtn.classList.toggle('hidden', !isHost);
+  startRoomBtn.disabled = !isHost || !allReady;
+
+  readyBtn.textContent = isReady ? 'Not Ready' : 'Ready';
+
+  setRoomStatus(
+    isHost
+      ? allReady
+        ? 'All players are ready.'
+        : 'Waiting for all players to be ready.'
+      : isReady
+        ? 'You are ready.'
+        : 'Tap Ready when you are ready.'
+  );
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function updateRoomButtons() {
+  readyBtn.classList.toggle('hidden', isHost);
+  startRoomBtn.classList.toggle('hidden', !isHost);
 }
 
 function randomFood(type = 'red') {
   return {
-    x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT),
+    x: Math.floor(Math.random() * gridWidth),
+    y: Math.floor(Math.random() * gridHeight),
     type
   };
 }
 
-function createSnake(playerId) {
-  const x = 10 + ((playerId * 7) % (WIDTH - 20));
-  const y = 10 + ((playerId * 9) % (HEIGHT - 20));
+function startOfflineAppleTimers() {
+  stopOfflineAppleTimers();
 
-  return [
-    { x, y },
-    { x: x - 1, y },
-    { x: x - 2, y }
-  ];
-}
-
-function createPlayer(ws, name, host) {
-  const id = nextId++;
-
-  return {
-    id,
-    ws,
-    name,
-    host,
-    ready: host,
-    color: COLORS[(id - 1) % COLORS.length],
-    dir: 'right',
-    nextDir: 'right',
-    alive: true,
-    score: 0,
-    grow: 0,
-    snake: createSnake(id)
-  };
-}
-
-function createRoom(roomName, player) {
-  const room = {
-    name: roomName,
-    hostId: player.id,
-    started: false,
-    paused: false,
-    food: [randomFood('red')],
-blueTimer: null,
-greenTimer: null,
-    players: new Map()
-  };
-
-  room.players.set(player.id, player);
-  player.roomName = roomName;
-
-  rooms.set(roomName, room);
-
-  return room;
-}
-
-function getRoom(roomName) {
-  return rooms.get(roomName.toLowerCase());
-}
-
-function publicPlayers(room) {
-  return Array.from(room.players.values()).map((player) => ({
-    id: player.id,
-    name: player.name,
-    host: player.host,
-    ready: player.ready,
-    alive: player.alive,
-    color: player.color,
-    score: player.score,
-    snake: player.snake
-  }));
-}
-
-function send(ws, data) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(data));
-  }
-}
-
-function roomState(room) {
-  return {
-    type: 'roomState',
-    room: room.name,
-    hostId: room.hostId,
-    started: room.started,
-    paused: room.paused,
-    players: publicPlayers(room)
-  };
-}
-
-function broadcastRoom(room, data) {
-  const message = JSON.stringify(data);
-
-  for (const player of room.players.values()) {
-    if (player.ws.readyState === WebSocket.OPEN) {
-      player.ws.send(message);
-    }
-  }
-}
-
-function broadcastRoomState(room) {
-  broadcastRoom(room, roomState(room));
-}
-
-function sendRoomList(ws) {
-  const list = Array.from(rooms.values())
-    .filter((room) => !room.started && room.players.size < MAX_PLAYERS)
-    .map((room) => ({
-      name: room.name,
-      players: room.players.size
-    }));
-
-  send(ws, {
-    type: 'roomList',
-    rooms: list
-  });
-}
-
-function allJoinersReady(room) {
-  return Array.from(room.players.values())
-    .every((player) => player.host || player.ready);
-}
-
-function setDirection(player, direction) {
-  const opposite = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left'
-  };
-
-  if (
-    direction &&
-    direction !== opposite[player.dir]
-  ) {
-    player.nextDir = direction;
-  }
-}
-
-function startAppleTimers(room) {
-  clearInterval(room.blueTimer);
-  clearInterval(room.greenTimer);
-
-  room.blueTimer = setInterval(() => {
-    if (!room.started || room.paused) {
+  offlineBlueTimer = setInterval(() => {
+    if (
+      mode !== 'offline' ||
+      isPaused ||
+      localGameOverShown
+    ) {
       return;
     }
 
-    room.food.push(randomFood('blue'));
+    food.push(randomFood('blue'));
+    draw();
   }, 5000);
 
-  room.greenTimer = setInterval(() => {
-    if (!room.started || room.paused) {
+  offlineGreenTimer = setInterval(() => {
+    if (
+      mode !== 'offline' ||
+      isPaused ||
+      localGameOverShown
+    ) {
       return;
     }
 
-    room.food.push(randomFood('green'));
+    food.push(randomFood('green'));
+    draw();
   }, 20000);
 }
 
-function startRoom(room) {
-  if (room.players.size < 1) return;
-  if (!allJoinersReady(room)) return;
+function stopOfflineAppleTimers() {
+  clearInterval(offlineBlueTimer);
+  clearInterval(offlineGreenTimer);
 
-room.started = true;
-resetRoomGame(room);
-startAppleTimers(room);
+  offlineBlueTimer = null;
+  offlineGreenTimer = null;
+}
 
-  broadcastRoom(room, {
-    type: 'gameStart',
-    width: WIDTH,
-    height: HEIGHT,
-    size: SIZE,
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused
+function beginSinglePlayer() {
+  mode = 'offline';
+  isHost = false;
+  currentRoom = '';
+  myId = null;
+  isPaused = false;
+  players = {};
+
+  stopIntroMusic();
+  playGameMusic();
+
+  resetLocalGame();
+  startOfflineAppleTimers();
+  showScreen(gameScreen);
+}
+
+function beginMultiplayerMenu() {
+  mode = 'multiplayer-menu';
+
+  playIntroMusic();
+  showScreen(multiplayerMenu);
+  connectSocket();
+}
+
+function createRoom() {
+  const name = playerNameInput.value.trim();
+  const room = createRoomNameInput.value.trim();
+
+  if (!name || !room) {
+    setRoomMessage('Enter your name and a room name.');
+    return;
+  }
+
+  setRoomMessage('Creating room...');
+
+  send({
+    type: 'createRoom',
+    name,
+    room
   });
 }
 
-function movePlayer(room, player) {
-  if (!player.alive) return;
+function joinRoom() {
+  const name = playerNameInput.value.trim();
+  const room = searchRoomNameInput.value.trim();
 
-  const opposite = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left'
-  };
-
-  if (
-    player.nextDir &&
-    player.nextDir !== opposite[player.dir]
-  ) {
-    player.dir = player.nextDir;
+  if (!name || !room) {
+    setRoomMessage('Enter your name and the room name.');
+    return;
   }
 
-  const head = { ...player.snake[0] };
+  setRoomMessage('Joining room...');
 
-  if (player.dir === 'up') head.y--;
-  if (player.dir === 'down') head.y++;
-  if (player.dir === 'left') head.x--;
-  if (player.dir === 'right') head.x++;
+  send({
+    type: 'joinRoom',
+    name,
+    room
+  });
+}
+
+function leaveRoom() {
+  if (ws) {
+    ws.close();
+  }
+
+  mode = 'multiplayer-menu';
+  isHost = false;
+  currentRoom = '';
+  myId = null;
+  isReady = false;
+  isPaused = false;
+  players = {};
+
+  setRoomMessage('');
+  showScreen(multiplayerMenu);
+  connectSocket();
+}
+
+singlePlayerBtn.addEventListener('click', beginSinglePlayer);
+multiplayerBtn.addEventListener('click', beginMultiplayerMenu);
+
+backToMenuBtn.addEventListener('click', () => {
+  stopIntroMusic();
+  showScreen(mainMenu);
+  mode = 'menu';
+});
+
+createRoomBtn.addEventListener('click', createRoom);
+joinRoomBtn.addEventListener('click', joinRoom);
+
+readyBtn.addEventListener('click', () => {
+  if (!isHost) {
+    send({ type: 'ready' });
+  }
+});
+
+startRoomBtn.addEventListener('click', () => {
+  if (isHost) {
+    send({ type: 'startRoom' });
+  }
+});
+
+leaveRoomBtn.addEventListener('click', leaveRoom);
+
+function updatePauseButton() {
+  pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+}
+
+function togglePause() {
+  if (mode === 'online') {
+    if (!isHost) {
+      setStatus('Only the host can pause or resume.');
+      return;
+    }
+
+    send({
+      type: 'pause'
+    });
+
+    return;
+  }
+
+  if (mode !== 'offline') {
+    return;
+  }
+
+  isPaused = !isPaused;
+  updatePauseButton();
+  setStatus(isPaused ? 'Paused' : 'Offline');
+  draw();
+}
+
+pauseBtn.addEventListener('click', togglePause);
+
+restartBtn.addEventListener('click', () => {
+  if (mode === 'online') {
+    if (isHost) {
+      send({ type: 'restart' });
+    }
+
+    return;
+  }
+
+  if (mode !== 'offline') {
+    return;
+  }
+
+  resetLocalGame();
+  startOfflineAppleTimers();
+  playGameMusic();
+});
+
+menuBtn.addEventListener('click', () => {
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+
+  stopOfflineAppleTimers();
+  stopGameMusic();
+
+  if (gameOverSound) {
+    gameOverSound.pause();
+    gameOverSound.currentTime = 0;
+  }
+
+  gameOverLogo.classList.remove('show');
+
+  mode = 'menu';
+  isHost = false;
+  myId = null;
+  currentRoom = '';
+  isReady = false;
+  isPaused = false;
+  players = {};
+
+  setStatus('Ready');
+  showScreen(mainMenu);
+  playIntroMusic();
+});
+
+document.addEventListener('keydown', (event) => {
+  const key = event.key.toLowerCase();
+
+  if (
+    mode !== 'offline' &&
+    mode !== 'online'
+  ) {
+    return;
+  }
+
+  if (key === 'p') {
+    togglePause();
+    return;
+  }
+
+  if (key === 'arrowup' || key === 'w') {
+    sendDirection('up');
+  }
+
+  if (key === 'arrowdown' || key === 's') {
+    sendDirection('down');
+  }
+
+  if (key === 'arrowleft' || key === 'a') {
+    sendDirection('left');
+  }
+
+  if (key === 'arrowright' || key === 'd') {
+    sendDirection('right');
+  }
+});
+
+controlButtons.forEach((button) => {
+  const direction = button.dataset.dir;
+
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+
+    button.classList.add('pressed');
+
+    if (
+      mode === 'offline' ||
+      mode === 'online'
+    ) {
+      if (mode === 'offline') {
+        playGameMusic();
+      }
+
+      sendDirection(direction);
+    }
+  });
+
+  button.addEventListener('pointerup', () => {
+    button.classList.remove('pressed');
+  });
+
+  button.addEventListener('pointercancel', () => {
+    button.classList.remove('pressed');
+  });
+
+  button.addEventListener('pointerleave', () => {
+    button.classList.remove('pressed');
+  });
+});
+
+function drawSnake(snake, color) {
+  if (!snake || snake.length === 0) return;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = drawSize * 0.85;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+
+  for (let i = snake.length - 1; i >= 0; i--) {
+    const segment = snake[i];
+
+    const x = segment.x * drawSize + drawSize / 2;
+    const y = segment.y * drawSize + drawSize / 2;
+
+    if (i === snake.length - 1) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  ctx.stroke();
+
+  const head = snake[0];
+  const hx = head.x * drawSize + drawSize / 2;
+  const hy = head.y * drawSize + drawSize / 2;
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(
+    hx,
+    hy,
+    drawSize * 0.42,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+}
+
+function drawApple() {
+  for (const apple of food) {
+    if (apple.type === 'blue') {
+      ctx.fillStyle = '#2583ff';
+    } else if (apple.type === 'green') {
+      ctx.fillStyle = '#22c55e';
+    } else {
+      ctx.fillStyle = '#ef4444';
+    }
+
+    ctx.beginPath();
+    ctx.arc(
+      apple.x * drawSize + drawSize / 2,
+      apple.y * drawSize + drawSize / 2,
+      drawSize * 0.35,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+}
+
+function drawLocal() {
+  drawApple();
+  drawSnake(localSnake, '#008cff');
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '14px Arial';
+  ctx.fillText(`Score ${localScore}`, 10, 20);
+}
+
+function drawOnline() {
+  drawApple();
+
+  for (const player of Object.values(players)) {
+    drawSnake(
+      player.snake,
+      player.color || '#22c55e'
+    );
+
+    if (
+      player.snake &&
+      player.snake[0]
+    ) {
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px Arial';
+
+      ctx.fillText(
+        `${player.name} ${player.score}`,
+        player.snake[0].x * size,
+        player.snake[0].y * size - 5
+      );
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  if (gameBackground.complete) {
+    ctx.drawImage(
+      gameBackground,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+  } else {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+  }
+
+  if (
+    mode === 'online' &&
+    Object.keys(players).length > 0
+  ) {
+    drawOnline();
+  } else {
+    drawLocal();
+  }
+
+  if (isPaused) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 30px Arial';
+    ctx.textAlign = 'center';
+
+    ctx.fillText(
+      'PAUSED',
+      canvas.width / 2,
+      canvas.height / 2
+    );
+
+    ctx.textAlign = 'left';
+  }
+}
+
+function resetLocalGame() {
+  localSnake = [
+    { x: 10, y: 10 },
+    { x: 9, y: 10 },
+    { x: 8, y: 10 }
+  ];
+
+  localDir = 'right';
+  localNextDir = 'right';
+  localGrow = 0;
+  localScore = 0;
+  localAlive = true;
+  localGameOverShown = false;
+  isPaused = false;
+  food = [randomFood('red')];
+
+  gameOverLogo.classList.remove('show');
+
+  if (gameOverSound) {
+    gameOverSound.pause();
+    gameOverSound.currentTime = 0;
+  }
+
+  updatePauseButton();
+  setStatus('Offline');
+  draw();
+}
+
+function showOfflineGameOver() {
+  if (localGameOverShown) return;
+
+  localGameOverShown = true;
+  localAlive = false;
+  setStatus('Game Over');
+
+  stopOfflineAppleTimers();
+  stopGameMusic();
+  playGameOverSound();
+
+  gameOverLogo.classList.add('show');
+  draw();
+}
+
+function stepLocal() {
+  if (
+    isPaused ||
+    !localAlive ||
+    localGameOverShown
+  ) {
+    return;
+  }
+
+  localDir = setDirection(
+    localDir,
+    localNextDir
+  );
+
+  const head = {
+    ...localSnake[0]
+  };
+
+  if (localDir === 'up') head.y--;
+  if (localDir === 'down') head.y++;
+  if (localDir === 'left') head.x--;
+  if (localDir === 'right') head.x++;
 
   const outside =
     head.x < 0 ||
-    head.x >= WIDTH ||
+    head.x >= gridWidth ||
     head.y < 0 ||
-    head.y >= HEIGHT;
+    head.y >= gridHeight;
 
-  const hitsSelf = player.snake
+  const hitsSelf = localSnake
     .slice(1)
     .some((segment) =>
       segment.x === head.x &&
       segment.y === head.y
     );
 
-  const hitsOther = Array.from(room.players.values())
-    .filter((other) => other.id !== player.id && other.alive)
-    .some((other) =>
-      other.snake.some((segment) =>
-        segment.x === head.x &&
-        segment.y === head.y
-      )
-    );
-
-  if (outside || hitsSelf || hitsOther) {
-    player.alive = false;
+  if (outside || hitsSelf) {
+    showOfflineGameOver();
     return;
   }
 
-  player.snake.unshift(head);
+  localSnake.unshift(head);
 
-const foodIndex = room.food.findIndex((apple) =>
-  head.x === apple.x &&
-  head.y === apple.y
-);
+  const foodIndex = food.findIndex((apple) =>
+    head.x === apple.x &&
+    head.y === apple.y
+  );
 
-if (foodIndex !== -1) {
-  const eatenApple = room.food[foodIndex];
+  if (foodIndex !== -1) {
+    const eatenApple = food[foodIndex];
 
-  player.score++;
+    localScore++;
 
-  if (eatenApple.type === 'blue') {
-    player.grow += 8;
-  } else if (eatenApple.type === 'green') {
-    player.grow += 15;
+    if (eatenApple.type === 'blue') {
+      localGrow += 8;
+    } else if (eatenApple.type === 'green') {
+      localGrow += 15;
+    } else {
+      localGrow += 2;
+    }
+
+    if (eatenApple.type === 'red') {
+      food[foodIndex] = randomFood('red');
+    } else {
+      food.splice(foodIndex, 1);
+    }
+  }
+
+  if (localGrow > 0) {
+    localGrow--;
   } else {
-    player.grow += 2;
-  }
-
-  room.food.splice(foodIndex, 1);
-}
-
-  if (player.grow > 0) {
-    player.grow--;
-  } else {
-    player.snake.pop();
+    localSnake.pop();
   }
 }
 
-function gameStep(room) {
-  if (!room.started || room.paused) return;
-
-  for (const player of room.players.values()) {
-    movePlayer(room, player);
+function sendDirection(direction) {
+  if (
+    isPaused ||
+    localGameOverShown
+  ) {
+    return;
   }
 
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused
-  });
+  if (mode === 'online') {
+    send({
+      type: 'dir',
+      dir: direction
+    });
+  } else if (mode === 'offline') {
+    localNextDir = direction;
+  }
 }
 
-function removePlayer(player) {
-  const room = getRoom(player.roomName);
-
-  if (!room) return;
-
-  room.players.delete(player.id);
-
-if (room.players.size === 0) {
-  clearInterval(room.blueTimer);
-  clearInterval(room.greenTimer);
-
-  rooms.delete(room.name.toLowerCase());
-  return;
-}
-
-  if (room.hostId === player.id) {
-    const newHost = room.players.values().next().value;
-
-    room.hostId = newHost.id;
-
-    for (const other of room.players.values()) {
-      other.host = other.id === room.hostId;
-
-      if (other.host) {
-        other.ready = true;
-      }
-    }
+function gameLoop() {
+  if (mode === 'offline') {
+    stepLocal();
   }
 
-  broadcastRoomState(room);
+  draw();
 }
 
-wss.on('connection', (ws) => {
-  const client = {
-    ws,
-    player: null
-  };
+singlePlayerBtn.focus();
+showScreen(mainMenu);
+playIntroMusic();
+connectSocket();
 
-  send(ws, {
-    type: 'connected'
-  });
+canvas.width = 360;
+canvas.height = 400;
 
-  ws.on('message', (rawMessage) => {
-    try {
-      const data = JSON.parse(rawMessage.toString());
-
-      if (data.type === 'createRoom') {
-        const name = cleanText(data.name, 'Player');
-        const roomName = cleanText(data.room, 'Room');
-
-        if (getRoom(roomName)) {
-          send(ws, {
-            type: 'error',
-            message: 'That room already exists.'
-          });
-          return;
-        }
-
-        const player = createPlayer(ws, name, true);
-        const room = createRoom(roomName.toLowerCase(), player);
-
-        client.player = player;
-
-        send(ws, {
-          type: 'roomJoined',
-          room: room.name,
-          host: true,
-          playerId: player.id
-        });
-
-        broadcastRoomState(room);
-        return;
-      }
-
-      if (data.type === 'listRooms') {
-        sendRoomList(ws);
-        return;
-      }
-
-      if (data.type === 'joinRoom') {
-        const name = cleanText(data.name, 'Player');
-        const roomName = cleanText(data.room, 'Room');
-        const room = getRoom(roomName);
-
-        if (!room) {
-          send(ws, {
-            type: 'error',
-            message: 'Room not found.'
-          });
-          return;
-        }
-
-        if (room.started) {
-          send(ws, {
-            type: 'error',
-            message: 'That game has already started.'
-          });
-          return;
-        }
-
-        if (room.players.size >= MAX_PLAYERS) {
-          send(ws, {
-            type: 'error',
-            message: 'That room is full. Maximum is four players.'
-          });
-          return;
-        }
-
-        const player = createPlayer(ws, name, false);
-        player.ready = false;
-        player.roomName = room.name;
-
-        room.players.set(player.id, player);
-        client.player = player;
-
-        send(ws, {
-          type: 'roomJoined',
-          room: room.name,
-          host: false,
-          playerId: player.id
-        });
-
-        broadcastRoomState(room);
-        return;
-      }
-
-      if (data.type === 'ready') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (!room || player.host) return;
-
-        player.ready = !player.ready;
-        broadcastRoomState(room);
-        return;
-      }
-
-      if (data.type === 'startRoom') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (!room || !player.host) return;
-
-        if (!allJoinersReady(room)) {
-          send(ws, {
-            type: 'error',
-            message: 'Every player must be ready before starting.'
-          });
-          return;
-        }
-
-        startRoom(room);
-        return;
-      }
-
-      if (data.type === 'pause') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (!room || !room.started || !player.host) {
-          return;
-        }
-
-        room.paused = !room.paused;
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
-        return;
-      }
-
-      if (data.type === 'restart') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (!room || !room.started || !player.host) return;
-
-        resetRoomGame(room);
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
-        return;
-      }
-
-      if (data.type === 'dir') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (!room || !room.started || room.paused) return;
-
-        setDirection(player, data.dir);
-      }
-    } catch (error) {
-      send(ws, {
-        type: 'error',
-        message: 'Invalid server message.'
-      });
-    }
-  });
-
-  ws.on('close', () => {
-    if (client.player) {
-      removePlayer(client.player);
-    }
-  });
-});
-
-setInterval(() => {
-  for (const room of rooms.values()) {
-    gameStep(room);
-  }
-}, TICK);
-
-server.listen(PORT, () => {
-  console.log(`Snake server listening on port ${PORT}`);
-});
+setInterval(gameLoop, 120);

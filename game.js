@@ -51,6 +51,7 @@ let isReady = false;
 let isPaused = false;
 
 let players = {};
+
 let food = [
   {
     x: 10,
@@ -77,6 +78,9 @@ let localScore = 0;
 let localAlive = true;
 let localGameOverShown = false;
 
+let offlineBlueTimer = null;
+let offlineGreenTimer = null;
+
 function showScreen(screen) {
   mainMenu.classList.add('hidden');
   multiplayerMenu.classList.add('hidden');
@@ -92,6 +96,10 @@ function setRoomMessage(message) {
 
 function setRoomStatus(message) {
   roomStatus.textContent = message || '';
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
 }
 
 function playIntroMusic() {
@@ -168,14 +176,22 @@ function connectSocket() {
   }
 
   ws.onopen = () => {
-    if (mode === 'menu' || mode === 'multiplayer-menu') {
+    if (
+      mode === 'menu' ||
+      mode === 'multiplayer-menu'
+    ) {
       setRoomMessage('Connected.');
     }
   };
 
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    handleServerMessage(data);
+    try {
+      const data = JSON.parse(event.data);
+      handleServerMessage(data);
+    } catch (error) {
+      console.error('Invalid server response:', error);
+      setRoomMessage('Invalid response from server.');
+    }
   };
 
   ws.onerror = () => {
@@ -194,7 +210,37 @@ function connectSocket() {
   };
 }
 
+function normalizeFood(foodData) {
+  if (Array.isArray(foodData)) {
+    return foodData.filter((apple) =>
+      apple &&
+      Number.isFinite(apple.x) &&
+      Number.isFinite(apple.y)
+    );
+  }
+
+  if (
+    foodData &&
+    Number.isFinite(foodData.x) &&
+    Number.isFinite(foodData.y)
+  ) {
+    return [
+      {
+        x: foodData.x,
+        y: foodData.y,
+        type: foodData.type || 'red'
+      }
+    ];
+  }
+
+  return [randomFood('red')];
+}
+
 function handleServerMessage(data) {
+  if (!data || typeof data.type !== 'string') {
+    return;
+  }
+
   if (data.type === 'error') {
     setRoomMessage(data.message || 'Something went wrong.');
     setRoomStatus(data.message || 'Something went wrong.');
@@ -228,16 +274,17 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
-    food = Array.isArray(data.food)
-  ? data.food
-  : [data.food];
+    food = normalizeFood(data.food);
+
     gridWidth = data.width || gridWidth;
     gridHeight = data.height || gridHeight;
     size = data.size || size;
 
+    stopOfflineAppleTimers();
     stopIntroMusic();
     playGameMusic();
     showScreen(gameScreen);
+    updatePauseButton();
     setStatus('Connected');
     draw();
     return;
@@ -247,9 +294,7 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
-    food = Array.isArray(data.food)
-  ? data.food
-  : [data.food];
+    food = normalizeFood(data.food);
 
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
@@ -340,14 +385,24 @@ function updateRoomButtons() {
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
 }
-let offlineBlueTimer = null;
-let offlineGreenTimer = null;
+
+function randomFood(type = 'red') {
+  return {
+    x: Math.floor(Math.random() * gridWidth),
+    y: Math.floor(Math.random() * gridHeight),
+    type
+  };
+}
 
 function startOfflineAppleTimers() {
   stopOfflineAppleTimers();
 
   offlineBlueTimer = setInterval(() => {
-    if (mode !== 'offline' || isPaused || localGameOverShown) {
+    if (
+      mode !== 'offline' ||
+      isPaused ||
+      localGameOverShown
+    ) {
       return;
     }
 
@@ -356,7 +411,11 @@ function startOfflineAppleTimers() {
   }, 5000);
 
   offlineGreenTimer = setInterval(() => {
-    if (mode !== 'offline' || isPaused || localGameOverShown) {
+    if (
+      mode !== 'offline' ||
+      isPaused ||
+      localGameOverShown
+    ) {
       return;
     }
 
@@ -372,19 +431,21 @@ function stopOfflineAppleTimers() {
   offlineBlueTimer = null;
   offlineGreenTimer = null;
 }
+
 function beginSinglePlayer() {
   mode = 'offline';
   isHost = false;
   currentRoom = '';
   myId = null;
   isPaused = false;
+  players = {};
 
   stopIntroMusic();
   playGameMusic();
 
-resetLocalGame();
-startOfflineAppleTimers();
-showScreen(gameScreen);
+  resetLocalGame();
+  startOfflineAppleTimers();
+  showScreen(gameScreen);
 }
 
 function beginMultiplayerMenu() {
@@ -440,6 +501,9 @@ function leaveRoom() {
   isHost = false;
   currentRoom = '';
   myId = null;
+  isReady = false;
+  isPaused = false;
+  players = {};
 
   setRoomMessage('');
   showScreen(multiplayerMenu);
@@ -472,87 +536,8 @@ startRoomBtn.addEventListener('click', () => {
 
 leaveRoomBtn.addEventListener('click', leaveRoom);
 
-function setStatus(text) {
-  statusEl.textContent = text;
-}
-
 function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
-}
-
-function randomFood(type = 'red') {
-  return {
-    x: Math.floor(Math.random() * gridWidth),
-    y: Math.floor(Math.random() * gridHeight),
-    type
-  };
-}
-
-function setDirection(current, next) {
-  const opposite = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left'
-  };
-
-  if (next && next !== opposite[current]) {
-    return next;
-  }
-
-  return current;
-}
-
-function resetLocalGame() {
-  localSnake = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 }
-  ];
-
-  localDir = 'right';
-  localNextDir = 'right';
-  localGrow = 0;
-  localScore = 0;
-  localAlive = true;
-  localGameOverShown = false;
-  food = [randomFood('red')];
-
-  gameOverLogo.classList.remove('show');
-
-  if (gameOverSound) {
-    gameOverSound.pause();
-    gameOverSound.currentTime = 0;
-  }
-
-  setStatus('Offline');
-  draw();
-}
-
-function showOfflineGameOver() {
-  if (localGameOverShown) return;
-
-  localGameOverShown = true;
-  setStatus('Game Over');
-
-  stopOfflineAppleTimers();
-  playGameOverSound();
-
-  gameOverLogo.classList.add('show');
-  draw();
-}
-
-function sendDirection(direction) {
-  if (isPaused || localGameOverShown) return;
-
-  if (mode === 'online') {
-    send({
-      type: 'dir',
-      dir: direction
-    });
-  } else {
-    localNextDir = direction;
-  }
 }
 
 function togglePause() {
@@ -569,6 +554,10 @@ function togglePause() {
     return;
   }
 
+  if (mode !== 'offline') {
+    return;
+  }
+
   isPaused = !isPaused;
   updatePauseButton();
   setStatus(isPaused ? 'Paused' : 'Offline');
@@ -582,19 +571,26 @@ restartBtn.addEventListener('click', () => {
     if (isHost) {
       send({ type: 'restart' });
     }
+
+    return;
+  }
+
+  if (mode !== 'offline') {
     return;
   }
 
   resetLocalGame();
-startOfflineAppleTimers();
-playGameMusic();
+  startOfflineAppleTimers();
+  playGameMusic();
 });
+
 menuBtn.addEventListener('click', () => {
   if (ws) {
     ws.close();
     ws = null;
   }
 
+  stopOfflineAppleTimers();
   stopGameMusic();
 
   if (gameOverSound) {
@@ -616,10 +612,14 @@ menuBtn.addEventListener('click', () => {
   showScreen(mainMenu);
   playIntroMusic();
 });
+
 document.addEventListener('keydown', (event) => {
   const key = event.key.toLowerCase();
 
-  if (mode !== 'offline' && mode !== 'online') {
+  if (
+    mode !== 'offline' &&
+    mode !== 'online'
+  ) {
     return;
   }
 
@@ -653,7 +653,10 @@ controlButtons.forEach((button) => {
 
     button.classList.add('pressed');
 
-    if (mode === 'offline' || mode === 'online') {
+    if (
+      mode === 'offline' ||
+      mode === 'online'
+    ) {
       if (mode === 'offline') {
         playGameMusic();
       }
@@ -667,6 +670,10 @@ controlButtons.forEach((button) => {
   });
 
   button.addEventListener('pointercancel', () => {
+    button.classList.remove('pressed');
+  });
+
+  button.addEventListener('pointerleave', () => {
     button.classList.remove('pressed');
   });
 });
@@ -702,7 +709,13 @@ function drawSnake(snake, color) {
 
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(hx, hy, drawSize * 0.42, 0, Math.PI * 2);
+  ctx.arc(
+    hx,
+    hy,
+    drawSize * 0.42,
+    0,
+    Math.PI * 2
+  );
   ctx.fill();
 }
 
@@ -746,7 +759,10 @@ function drawOnline() {
       player.color || '#22c55e'
     );
 
-    if (player.snake && player.snake[0]) {
+    if (
+      player.snake &&
+      player.snake[0]
+    ) {
       ctx.fillStyle = '#fff';
       ctx.font = '14px Arial';
 
@@ -760,7 +776,12 @@ function drawOnline() {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
 
   if (gameBackground.complete) {
     ctx.drawImage(
@@ -812,6 +833,49 @@ function draw() {
   }
 }
 
+function resetLocalGame() {
+  localSnake = [
+    { x: 10, y: 10 },
+    { x: 9, y: 10 },
+    { x: 8, y: 10 }
+  ];
+
+  localDir = 'right';
+  localNextDir = 'right';
+  localGrow = 0;
+  localScore = 0;
+  localAlive = true;
+  localGameOverShown = false;
+  isPaused = false;
+  food = [randomFood('red')];
+
+  gameOverLogo.classList.remove('show');
+
+  if (gameOverSound) {
+    gameOverSound.pause();
+    gameOverSound.currentTime = 0;
+  }
+
+  updatePauseButton();
+  setStatus('Offline');
+  draw();
+}
+
+function showOfflineGameOver() {
+  if (localGameOverShown) return;
+
+  localGameOverShown = true;
+  localAlive = false;
+  setStatus('Game Over');
+
+  stopOfflineAppleTimers();
+  stopGameMusic();
+  playGameOverSound();
+
+  gameOverLogo.classList.add('show');
+  draw();
+}
+
 function stepLocal() {
   if (
     isPaused ||
@@ -849,38 +913,59 @@ function stepLocal() {
     );
 
   if (outside || hitsSelf) {
-    localAlive = false;
     showOfflineGameOver();
     return;
   }
 
   localSnake.unshift(head);
 
-const foodIndex = food.findIndex((apple) =>
-  head.x === apple.x &&
-  head.y === apple.y
-);
+  const foodIndex = food.findIndex((apple) =>
+    head.x === apple.x &&
+    head.y === apple.y
+  );
 
-if (foodIndex !== -1) {
-  const eatenApple = food[foodIndex];
+  if (foodIndex !== -1) {
+    const eatenApple = food[foodIndex];
 
-  localScore++;
+    localScore++;
 
-  if (eatenApple.type === 'blue') {
-    localGrow += 8;
-  } else if (eatenApple.type === 'green') {
-    localGrow += 15;
-  } else {
-    localGrow += 2;
+    if (eatenApple.type === 'blue') {
+      localGrow += 8;
+    } else if (eatenApple.type === 'green') {
+      localGrow += 15;
+    } else {
+      localGrow += 2;
+    }
+
+    if (eatenApple.type === 'red') {
+      food[foodIndex] = randomFood('red');
+    } else {
+      food.splice(foodIndex, 1);
+    }
   }
-
-  food.splice(foodIndex, 1);
-}
 
   if (localGrow > 0) {
     localGrow--;
   } else {
     localSnake.pop();
+  }
+}
+
+function sendDirection(direction) {
+  if (
+    isPaused ||
+    localGameOverShown
+  ) {
+    return;
+  }
+
+  if (mode === 'online') {
+    send({
+      type: 'dir',
+      dir: direction
+    });
+  } else if (mode === 'offline') {
+    localNextDir = direction;
   }
 }
 
