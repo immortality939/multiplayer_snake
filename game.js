@@ -14,7 +14,11 @@ const createRoomNameInput = document.getElementById('createRoomName');
 const searchRoomNameInput = document.getElementById('searchRoomName');
 
 const createRoomBtn = document.getElementById('createRoomBtn');
+const searchRoomsBtn = document.getElementById('searchRoomsBtn');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
+
+const availableRooms =
+  document.getElementById('availableRooms');
 
 const roomTitle = document.getElementById('roomTitle');
 const playerList = document.getElementById('playerList');
@@ -43,6 +47,7 @@ const gameBackground = new Image();
 gameBackground.src = 'Sbackground.jpg';
 
 let ws = null;
+let socketReadyPromise = null;
 let mode = 'menu';
 let isHost = false;
 let myId = null;
@@ -80,6 +85,9 @@ let localGameOverShown = false;
 
 let offlineBlueTimer = null;
 let offlineGreenTimer = null;
+let offlineEnemyTimer = null;
+
+let enemies = [];
 
 function showScreen(screen) {
   mainMenu.classList.add('hidden');
@@ -175,14 +183,23 @@ function connectSocket() {
     return;
   }
 
-  ws.onopen = () => {
-    if (
-      mode === 'menu' ||
-      mode === 'multiplayer-menu'
-    ) {
-      setRoomMessage('Connected.');
-    }
-  };
+  socketReadyPromise = new Promise((resolve, reject) => {
+    ws.onopen = () => {
+      if (
+        mode === 'menu' ||
+        mode === 'multiplayer-menu'
+      ) {
+        setRoomMessage('Connected.');
+      }
+
+      resolve();
+    };
+
+    ws.onerror = () => {
+      setRoomMessage('Server connection error.');
+      reject(new Error('WebSocket connection failed.'));
+    };
+  });
 
   ws.onmessage = (event) => {
     try {
@@ -194,12 +211,9 @@ function connectSocket() {
     }
   };
 
-  ws.onerror = () => {
-    setRoomMessage('Server connection error.');
-  };
-
   ws.onclose = () => {
     ws = null;
+    socketReadyPromise = null;
 
     if (
       mode === 'room' ||
@@ -244,6 +258,11 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'connected') {
+    return;
+  }
+
+  if (data.type === 'roomList') {
+    renderAvailableRooms(data.rooms || []);
     return;
   }
 
@@ -295,6 +314,43 @@ function handleServerMessage(data) {
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
     draw();
+  }
+}
+
+function renderAvailableRooms(rooms) {
+  availableRooms.innerHTML = '';
+
+  if (!rooms.length) {
+    availableRooms.textContent =
+      'No rooms available.';
+    return;
+  }
+
+  for (const room of rooms) {
+    const roomButton =
+      document.createElement('button');
+
+    roomButton.type = 'button';
+    roomButton.className = 'available-room';
+    roomButton.textContent =
+      `${room.name} (${room.players}/4)`;
+
+    roomButton.addEventListener('click', () => {
+      searchRoomNameInput.value = room.name;
+
+      document
+        .querySelectorAll('.available-room')
+        .forEach((button) => {
+          button.classList.remove('selected');
+        });
+
+      roomButton.classList.add('selected');
+      setRoomMessage(
+        `Selected room: ${room.name}`
+      );
+    });
+
+    availableRooms.appendChild(roomButton);
   }
 }
 
@@ -390,42 +446,340 @@ function randomFood(type = 'red') {
   };
 }
 
+function spawnEnemy() {
+  if (
+    mode !== 'offline' ||
+    localGameOverShown
+  ) {
+    return;
+  }
+
+  const margin = 5;
+
+  const corners = [
+    {
+      x: margin,
+      y: margin,
+      dir: 'right'
+    },
+    {
+      x: gridWidth - margin - 1,
+      y: margin,
+      dir: 'down'
+    },
+    {
+      x: gridWidth - margin - 1,
+      y: gridHeight - margin - 1,
+      dir: 'left'
+    },
+    {
+      x: margin,
+      y: gridHeight - margin - 1,
+      dir: 'up'
+    }
+  ];
+
+  const corner =
+    corners[
+      Math.floor(Math.random() * corners.length)
+    ];
+
+  const body = {
+    right: [
+      { x: corner.x, y: corner.y },
+      { x: corner.x - 1, y: corner.y },
+      { x: corner.x - 2, y: corner.y }
+    ],
+
+    down: [
+      { x: corner.x, y: corner.y },
+      { x: corner.x, y: corner.y - 1 },
+      { x: corner.x, y: corner.y - 2 }
+    ],
+
+    left: [
+      { x: corner.x, y: corner.y },
+      { x: corner.x + 1, y: corner.y },
+      { x: corner.x + 2, y: corner.y }
+    ],
+
+    up: [
+      { x: corner.x, y: corner.y },
+      { x: corner.x, y: corner.y + 1 },
+      { x: corner.x, y: corner.y + 2 }
+    ]
+  }[corner.dir];
+
+  enemies.push({
+    snake: body,
+    dir: corner.dir,
+    grow: 0,
+    score: 0,
+    alive: true
+  });
+
+  console.log('Enemy spawned');
+}
+
+function getNextEnemyPosition(position, direction) {
+  const next = {
+    x: position.x,
+    y: position.y
+  };
+
+  if (direction === 'up') next.y--;
+  if (direction === 'down') next.y++;
+  if (direction === 'left') next.x--;
+  if (direction === 'right') next.x++;
+
+  return next;
+}
+
+function getNearestEnemyApple(enemy) {
+  if (!food.length) {
+    return null;
+  }
+
+  const head = enemy.snake[0];
+
+  return food.reduce((nearest, apple) => {
+    const currentDistance =
+      Math.abs(head.x - apple.x) +
+      Math.abs(head.y - apple.y);
+
+    if (
+      !nearest ||
+      currentDistance < nearest.distance
+    ) {
+      return {
+        apple,
+        distance: currentDistance
+      };
+    }
+
+    return nearest;
+  }, null).apple;
+}
+
+function enemyMoveIsDangerous(position, enemy) {
+  if (
+    position.x < 0 ||
+    position.x >= gridWidth ||
+    position.y < 0 ||
+    position.y >= gridHeight
+  ) {
+    return true;
+  }
+
+  const hitsOwnBody = enemy.snake
+    .slice(1)
+    .some((part) =>
+      part.x === position.x &&
+      part.y === position.y
+    );
+
+  if (hitsOwnBody) {
+    return true;
+  }
+
+  const hitsPlayer = localSnake.some((part) =>
+    part.x === position.x &&
+    part.y === position.y
+  );
+
+  if (hitsPlayer) {
+    return true;
+  }
+
+  const hitsAnotherEnemy = enemies.some((other) =>
+    other !== enemy &&
+    other.alive &&
+    other.snake.some((part) =>
+      part.x === position.x &&
+      part.y === position.y
+    )
+  );
+
+  return hitsAnotherEnemy;
+}
+
+function chooseEnemyDirection(enemy) {
+  const target = getNearestEnemyApple(enemy);
+  const current = enemy.dir;
+
+  const opposite = {
+    up: 'down',
+    down: 'up',
+    left: 'right',
+    right: 'left'
+  };
+
+  const directions = [
+    'up',
+    'down',
+    'left',
+    'right'
+  ];
+
+  const safeDirections = directions.filter((direction) => {
+    if (direction === opposite[current]) {
+      return false;
+    }
+
+    const nextPosition = getNextEnemyPosition(
+      enemy.snake[0],
+      direction
+    );
+
+    return !enemyMoveIsDangerous(
+      nextPosition,
+      enemy
+    );
+  });
+
+  if (!safeDirections.length) {
+    return null;
+  }
+
+  if (!target) {
+    return safeDirections[0];
+  }
+
+  safeDirections.sort((a, b) => {
+    const positionA = getNextEnemyPosition(
+      enemy.snake[0],
+      a
+    );
+
+    const positionB = getNextEnemyPosition(
+      enemy.snake[0],
+      b
+    );
+
+    const distanceA =
+      Math.abs(positionA.x - target.x) +
+      Math.abs(positionA.y - target.y);
+
+    const distanceB =
+      Math.abs(positionB.x - target.x) +
+      Math.abs(positionB.y - target.y);
+
+    return distanceA - distanceB;
+  });
+
+  return safeDirections[0];
+}
+
+function moveEnemy(enemy) {
+  if (
+    !enemy.alive ||
+    isPaused ||
+    localGameOverShown
+  ) {
+    return;
+  }
+
+  const newDirection =
+    chooseEnemyDirection(enemy);
+
+  if (!newDirection) {
+    enemy.alive = false;
+    return;
+  }
+
+  enemy.dir = newDirection;
+
+  const head = getNextEnemyPosition(
+    enemy.snake[0],
+    enemy.dir
+  );
+
+  if (
+    enemyMoveIsDangerous(head, enemy)
+  ) {
+    enemy.alive = false;
+    return;
+  }
+
+  enemy.snake.unshift(head);
+
+  const foodIndex = food.findIndex((apple) =>
+    apple.x === head.x &&
+    apple.y === head.y
+  );
+
+  if (foodIndex !== -1) {
+    const apple = food[foodIndex];
+
+    enemy.score++;
+
+    if (apple.type === 'blue') {
+      enemy.grow += 8;
+    } else if (apple.type === 'green') {
+      enemy.grow += 15;
+    } else {
+      enemy.grow += 2;
+    }
+
+    if (apple.type === 'red') {
+      food[foodIndex] = randomFood('red');
+    } else {
+      food.splice(foodIndex, 1);
+    }
+  }
+
+  if (enemy.grow > 0) {
+    enemy.grow--;
+  } else {
+    enemy.snake.pop();
+  }
+}
+
 function startOfflineAppleTimers() {
   stopOfflineAppleTimers();
 
   offlineBlueTimer = setInterval(() => {
     if (
-      mode !== 'offline' ||
-      isPaused ||
-      localGameOverShown
+      mode === 'offline' &&
+      !isPaused &&
+      !localGameOverShown
     ) {
-      return;
+      food.push(randomFood('blue'));
+      draw();
     }
-
-    food.push(randomFood('blue'));
-    draw();
   }, 8000);
 
   offlineGreenTimer = setInterval(() => {
     if (
-      mode !== 'offline' ||
-      isPaused ||
-      localGameOverShown
+      mode === 'offline' &&
+      !isPaused &&
+      !localGameOverShown
     ) {
-      return;
+      food.push(randomFood('green'));
+      draw();
     }
-
-    food.push(randomFood('green'));
-    draw();
   }, 16000);
+
+  offlineEnemyTimer = setInterval(() => {
+    if (
+      mode === 'offline' &&
+      !isPaused &&
+      !localGameOverShown
+    ) {
+      spawnEnemy();
+      draw();
+    }
+  }, 20000);
 }
 
 function stopOfflineAppleTimers() {
   clearInterval(offlineBlueTimer);
   clearInterval(offlineGreenTimer);
+  clearInterval(offlineEnemyTimer);
 
   offlineBlueTimer = null;
   offlineGreenTimer = null;
+  offlineEnemyTimer = null;
 }
 
 function beginSinglePlayer() {
@@ -452,7 +806,33 @@ function beginMultiplayerMenu() {
   connectSocket();
 }
 
-function createRoom() {
+async function searchRooms() {
+  availableRooms.textContent =
+    'Searching for rooms...';
+
+  if (!ws) {
+    connectSocket();
+  }
+
+  try {
+    if (socketReadyPromise) {
+      await socketReadyPromise;
+    }
+
+    if (!send({ type: 'listRooms' })) {
+      availableRooms.textContent =
+        'Not connected to server.';
+      return;
+    }
+
+    setRoomMessage('Searching for rooms...');
+  } catch (error) {
+    availableRooms.textContent =
+      'Could not connect to server.';
+  }
+}
+
+async function createRoom() {
   const name = playerNameInput.value.trim();
   const room = createRoomNameInput.value.trim();
 
@@ -461,16 +841,28 @@ function createRoom() {
     return;
   }
 
-  setRoomMessage('Creating room...');
+  if (!ws) {
+    connectSocket();
+  }
 
-  send({
-    type: 'createRoom',
-    name,
-    room
-  });
+  try {
+    if (socketReadyPromise) {
+      await socketReadyPromise;
+    }
+
+    setRoomMessage('Creating room...');
+
+    send({
+      type: 'createRoom',
+      name,
+      room
+    });
+  } catch (error) {
+    setRoomMessage('Could not connect to server.');
+  }
 }
 
-function joinRoom() {
+async function joinRoom() {
   const name = playerNameInput.value.trim();
   const room = searchRoomNameInput.value.trim();
 
@@ -479,13 +871,25 @@ function joinRoom() {
     return;
   }
 
-  setRoomMessage('Joining room...');
+  if (!ws) {
+    connectSocket();
+  }
 
-  send({
-    type: 'joinRoom',
-    name,
-    room
-  });
+  try {
+    if (socketReadyPromise) {
+      await socketReadyPromise;
+    }
+
+    setRoomMessage('Joining room...');
+
+    send({
+      type: 'joinRoom',
+      name,
+      room
+    });
+  } catch (error) {
+    setRoomMessage('Could not connect to server.');
+  }
 }
 
 function leaveRoom() {
@@ -516,6 +920,7 @@ backToMenuBtn.addEventListener('click', () => {
 });
 
 createRoomBtn.addEventListener('click', createRoom);
+searchRoomsBtn.addEventListener('click', searchRooms);
 joinRoomBtn.addEventListener('click', joinRoom);
 
 readyBtn.addEventListener('click', () => {
@@ -565,6 +970,7 @@ function resetLocalGame() {
   localAlive = true;
   localGameOverShown = false;
   isPaused = false;
+  enemies = [];
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -679,6 +1085,7 @@ menuBtn.addEventListener('click', () => {
   isReady = false;
   isPaused = false;
   players = {};
+  enemies = [];
 
   setStatus('Ready');
   showScreen(mainMenu);
@@ -747,7 +1154,9 @@ controlButtons.forEach((button) => {
 });
 
 function drawSnake(snake, color) {
-  if (!snake || snake.length === 0) return;
+  if (!snake || snake.length === 0) {
+    return;
+  }
 
   ctx.strokeStyle = color;
   ctx.lineWidth = drawSize * 0.85;
@@ -812,6 +1221,10 @@ function drawApple() {
 function drawLocal() {
   drawApple();
   drawSnake(localSnake, '#008cff');
+
+  for (const enemy of enemies) {
+    drawSnake(enemy.snake, '#d4af37');
+  }
 
   ctx.fillStyle = '#fff';
   ctx.font = '14px Arial';
@@ -937,7 +1350,19 @@ function stepLocal() {
       segment.y === head.y
     );
 
-  if (outside || hitsSelf) {
+  const hitsEnemy = enemies.some((enemy) =>
+    enemy.alive &&
+    enemy.snake.some((part) =>
+      part.x === head.x &&
+      part.y === head.y
+    )
+  );
+
+  if (
+    outside ||
+    hitsSelf ||
+    hitsEnemy
+  ) {
     showOfflineGameOver();
     return;
   }
@@ -979,6 +1404,14 @@ function stepLocal() {
 function gameLoop() {
   if (mode === 'offline') {
     stepLocal();
+
+    for (const enemy of enemies) {
+      moveEnemy(enemy);
+    }
+
+    enemies = enemies.filter((enemy) =>
+      enemy.alive
+    );
   }
 
   draw();

@@ -18,133 +18,184 @@
   preload="auto">
 </audio>
 
-  <audio
-    id="bgMusic"
-    src="snakeroad.mp3"
-    loop
-    preload="auto">
-  </audio>
+<audio
+  id="bgMusic"
+  src="snakeroad.mp3"
+  loop
+  preload="auto">
+</audio>
 
-  <audio
-    id="gameOverSound"
-    src="gameover.mp3"
-    preload="auto">
-  </audio>
+<audio
+  id="gameOverSound"
+  src="gameover.mp3"
+  preload="auto">
+</audio>
 
-  <main id="app">
-    <section id="mainMenu" class="screen menu-screen">
-      <div class="menu-content">
-        <h1>Snake Bite</h1>
+<main id="app">
+  <section id="mainMenu" class="screen menu-screen">
+    <div class="menu-content">
+      <h1>Snake Bite</h1>
 
-        <div class="menu-buttons">
-          <button id="singlePlayerBtn" type="button">
-            Single Player
+      <div class="menu-buttons">
+        <button id="singlePlayerBtn" type="button">
+          Single Player
+        </button>
+
+        <button id="multiplayerBtn" type="button">
+          Multiplayer
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="multiplayerMenu" class="screen hidden">
+    <div class="panel">
+      <h2>Multiplayer</h2>
+
+      <label for="playerName">Create Name</label>
+      <input
+        id="playerName"
+        type="text"
+        maxlength="18"
+        placeholder="Enter your name">
+
+      <label for="createRoomName">Create Room</label>
+      <input
+        id="createRoomName"
+        type="text"
+        maxlength="18"
+        placeholder="Enter new room name">
+
+      <button id="createRoomBtn" type="button">
+        Create Room
+      </button>
+
+      <label for="searchRoomName">Search Room</label>
+      <input
+        id="searchRoomName"
+        type="text"
+        maxlength="18"
+        placeholder="Enter room name">
+
+      <button id="searchRoomsBtn" type="button">
+        SEARCH ROOM
+      </button>
+
+      <div
+        id="availableRooms"
+        class="available-rooms">
+      </div>
+
+      <button id="joinRoomBtn" type="button">
+        Join Room
+      </button>
+
+      <button
+        id="backToMenuBtn"
+        type="button"
+        class="secondary-btn">
+        Back
+      </button>
+
+      <div id="roomMessage"></div>
+    </div>
+  </section>
+
+  <section id="roomScreen" class="screen hidden">
+    <div class="panel room-panel">
+      <h2>
+        ROOM:
+        <span id="roomTitle">-</span>
+      </h2>
+
+      <div id="playerList" class="player-list"></div>
+
+      <button id="readyBtn" type="button">
+        Ready
+      </button>
+
+      <button id="startRoomBtn" type="button">
+        Start
+      </button>
+
+      <button
+        id="leaveRoomBtn"
+        type="button"
+        class="secondary-btn">
+        Leave Room
+      </button>
+
+      <div id="roomStatus"></div>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="screen hidden">
+    <div class="game-wrap">
+      <div class="hud">
+        <div id="status">Connecting...</div>
+
+        <div class="action-buttons">
+          <button id="pause" type="button">
+            Pause
           </button>
 
-          <button id="multiplayerBtn" type="button">
-            Multiplayer
+          <button id="restart" type="button">
+            Restart
+          </button>
+
+          <button id="menuBtn" type="button">
+            Menu
           </button>
         </div>
       </div>
-    </section>
 
-    <section id="multiplayerMenu" class="screen hidden">
-      <div class="panel">
-        <h2>Multiplayer</h2>
+      <div class="canvas-wrap">
+        <canvas
+          id="game"
+          width="600"
+          height="600">
+        </canvas>
 
-        <label for="playerName">Create Name</label>
-        <input
-          id="playerName"
-          type="text"
-          maxlength="18"
-          placeholder="Enter your name">
-
-        <label for="createRoomName">Create Room</label>
-        <input
-          id="createRoomName"
-          type="text"
-          maxlength="18"
-          placeholder="Enter new room name">
-
-        <button id="createRoomBtn" type="button">
-          Create Room
-        </button>
-
-        <label for="searchRoomName">Search Room</label>
-        <input
-          id="searchRoomName"
-          type="text"
-          maxlength="18"
-          placeholder="Enter room name">
-
-        <button id="joinRoomBtn" type="button">
-          Join Room
-        </button>
-
-        <button id="backToMenuBtn" type="button" class="secondary-btn">
-          Back
-        </button>
-
-        <div id="roomMessage"></div>
+        <img
+          id="gameOverLogo"
+          class="game-over-logo"
+          src="gameover.gif"
+          alt="Game Over">
       </div>
-    </section>
 
-    <section id="roomScreen" class="screen hidden">
-      <div class="panel room-panel">
-        <h2>
-          ROOM:
-          <span id="roomTitle">-</span>
-        </h2>
-
-        <div id="playerList" class="player-list"></div>
-
-        <button id="readyBtn" type="button">
-          Ready
+      <div class="controls">
+        <button
+          class="up"
+          data-dir="up"
+          type="button">
+          ▲
         </button>
 
-        <button id="startRoomBtn" type="button">
-          Start
+        <button
+          class="left"
+          data-dir="left"
+          type="button">
+          ◀
         </button>
 
-        <button id="leaveRoomBtn" type="button" class="secondary-btn">
-          Leave Room
+        <button
+          class="down"
+          data-dir="down"
+          type="button">
+          ▼
         </button>
 
-        <div id="roomStatus"></div>
+        <button
+          class="right"
+          data-dir="right"
+          type="button">
+          ▶
+        </button>
       </div>
-    </section>
+    </div>
+  </section>
+</main>
 
-    <section id="gameScreen" class="screen hidden">
-      <div class="game-wrap">
-        <div class="hud">
-          <div id="status">Connecting...</div>
-
-          <div class="action-buttons">
-  <button id="pause" type="button">Pause</button>
-  <button id="restart" type="button">Restart</button>
-  <button id="menuBtn" type="button">Menu</button>
-</div>
-
-        <div class="canvas-wrap">
-          <canvas id="game" width="600" height="600"></canvas>
-
-          <img
-            id="gameOverLogo"
-            class="game-over-logo"
-            src="gameover.gif"
-            alt="Game Over">
-        </div>
-
-        <div class="controls">
-          <button class="up" data-dir="up" type="button">▲</button>
-          <button class="left" data-dir="left" type="button">◀</button>
-          <button class="down" data-dir="down" type="button">▼</button>
-          <button class="right" data-dir="right" type="button">▶</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="game.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
