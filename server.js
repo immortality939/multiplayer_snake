@@ -41,10 +41,11 @@ function cleanText(value, fallback) {
   return text.slice(0, 18);
 }
 
-function randomFood() {
+function randomFood(type = 'red') {
   return {
     x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT)
+    y: Math.floor(Math.random() * HEIGHT),
+    type
   };
 }
 
@@ -84,7 +85,9 @@ function createRoom(roomName, player) {
     hostId: player.id,
     started: false,
     paused: false,
-    food: randomFood(),
+    food: [randomFood('red')],
+blueTimer: null,
+greenTimer: null,
     players: new Map()
   };
 
@@ -179,26 +182,34 @@ function setDirection(player, direction) {
   }
 }
 
-function resetRoomGame(room) {
-  room.food = randomFood();
-  room.paused = false;
+function startAppleTimers(room) {
+  clearInterval(room.blueTimer);
+  clearInterval(room.greenTimer);
 
-  for (const player of room.players.values()) {
-    player.dir = 'right';
-    player.nextDir = 'right';
-    player.alive = true;
-    player.score = 0;
-    player.grow = 0;
-    player.snake = createSnake(player.id);
-  }
+  room.blueTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food.push(randomFood('blue'));
+  }, 5000);
+
+  room.greenTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food.push(randomFood('green'));
+  }, 20000);
 }
 
 function startRoom(room) {
   if (room.players.size < 1) return;
   if (!allJoinersReady(room)) return;
 
-  room.started = true;
-  resetRoomGame(room);
+room.started = true;
+resetRoomGame(room);
+startAppleTimers(room);
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -264,14 +275,26 @@ function movePlayer(room, player) {
 
   player.snake.unshift(head);
 
-  if (
-    head.x === room.food.x &&
-    head.y === room.food.y
-  ) {
-    player.score++;
+const foodIndex = room.food.findIndex((apple) =>
+  head.x === apple.x &&
+  head.y === apple.y
+);
+
+if (foodIndex !== -1) {
+  const eatenApple = room.food[foodIndex];
+
+  player.score++;
+
+  if (eatenApple.type === 'blue') {
+    player.grow += 8;
+  } else if (eatenApple.type === 'green') {
+    player.grow += 15;
+  } else {
     player.grow += 2;
-    room.food = randomFood();
   }
+
+  room.food.splice(foodIndex, 1);
+}
 
   if (player.grow > 0) {
     player.grow--;
@@ -302,10 +325,13 @@ function removePlayer(player) {
 
   room.players.delete(player.id);
 
-  if (room.players.size === 0) {
-    rooms.delete(room.name.toLowerCase());
-    return;
-  }
+if (room.players.size === 0) {
+  clearInterval(room.blueTimer);
+  clearInterval(room.greenTimer);
+
+  rooms.delete(room.name.toLowerCase());
+  return;
+}
 
   if (room.hostId === player.id) {
     const newHost = room.players.values().next().value;
