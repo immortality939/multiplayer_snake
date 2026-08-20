@@ -60,7 +60,7 @@ function createSnake(playerId) {
     1: {
       x: margin,
       y: margin,
-      dir: 'left'
+      dir: 'right'
     },
 
     2: {
