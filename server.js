@@ -54,16 +54,76 @@ function randomFood(type = 'red') {
 }
 
 function createSnake(playerId) {
-  const x = 10 + ((playerId * 7) % (WIDTH - 20));
-  const y = 10 + ((playerId * 9) % (HEIGHT - 20));
+  const margin = 8;
+
+  const spawns = {
+    1: {
+      x: margin,
+      y: margin,
+      dir: 'left'
+    },
+
+    2: {
+      x: WIDTH - margin - 1,
+      y: margin,
+      dir: 'down'
+    },
+
+    3: {
+      x: WIDTH - margin - 1,
+      y: HEIGHT - margin - 1,
+      dir: 'left'
+    },
+
+    4: {
+      x: margin,
+      y: HEIGHT - margin - 1,
+      dir: 'up'
+    }
+  };
+
+  const spawn = spawns[((playerId - 1) % 4) + 1];
+
+  if (spawn.dir === 'left') {
+    return [
+      { x: spawn.x, y: spawn.y },
+      { x: spawn.x + 1, y: spawn.y },
+      { x: spawn.x + 2, y: spawn.y }
+    ];
+  }
+
+  if (spawn.dir === 'right') {
+    return [
+      { x: spawn.x, y: spawn.y },
+      { x: spawn.x - 1, y: spawn.y },
+      { x: spawn.x - 2, y: spawn.y }
+    ];
+  }
+
+  if (spawn.dir === 'down') {
+    return [
+      { x: spawn.x, y: spawn.y },
+      { x: spawn.x, y: spawn.y - 1 },
+      { x: spawn.x, y: spawn.y - 2 }
+    ];
+  }
 
   return [
-    { x, y },
-    { x: x - 1, y },
-    { x: x - 2, y }
+    { x: spawn.x, y: spawn.y },
+    { x: spawn.x, y: spawn.y + 1 },
+    { x: spawn.x, y: spawn.y + 2 }
   ];
 }
+function getSpawnDirection(playerId) {
+  const directions = {
+    1: 'left',
+    2: 'down',
+    3: 'left',
+    4: 'up'
+  };
 
+  return directions[((playerId - 1) % 4) + 1];
+}
 function createPlayer(ws, name, host) {
   const id = nextId++;
 
@@ -74,13 +134,13 @@ function createPlayer(ws, name, host) {
     host,
     ready: host,
     color: COLORS[(id - 1) % COLORS.length],
-    dir: 'right',
-    nextDir: 'right',
-    alive: true,
-    score: 0,
-    grow: 0,
-    snake: createSnake(id),
-    roomName: ''
+dir: getSpawnDirection(id),
+nextDir: getSpawnDirection(id),
+alive: true,
+score: 0,
+grow: 0,
+snake: createSnake(id),
+roomName: ''
   };
 }
 
@@ -215,8 +275,8 @@ function resetRoomGame(room) {
   room.paused = false;
 
   for (const player of room.players.values()) {
-    player.dir = 'right';
-    player.nextDir = 'right';
+    player.dir = getSpawnDirection(player.id);
+player.nextDir = getSpawnDirection(player.id);
     player.alive = true;
     player.score = 0;
     player.grow = 0;
