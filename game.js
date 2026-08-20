@@ -51,7 +51,13 @@ let isReady = false;
 let isPaused = false;
 
 let players = {};
-let food = { x: 0, y: 0 };
+let food = [
+  {
+    x: 10,
+    y: 10,
+    type: 'red'
+  }
+];
 
 let gridWidth = 72;
 let gridHeight = 80;
@@ -222,7 +228,9 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
-    food = data.food;
+    food = Array.isArray(data.food)
+  ? data.food
+  : [data.food];
     gridWidth = data.width || gridWidth;
     gridHeight = data.height || gridHeight;
     size = data.size || size;
@@ -239,7 +247,9 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
-    food = data.food;
+    food = Array.isArray(data.food)
+  ? data.food
+  : [data.food];
 
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
@@ -330,7 +340,38 @@ function updateRoomButtons() {
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
 }
+let offlineBlueTimer = null;
+let offlineGreenTimer = null;
 
+function startOfflineAppleTimers() {
+  stopOfflineAppleTimers();
+
+  offlineBlueTimer = setInterval(() => {
+    if (mode !== 'offline' || isPaused || localGameOverShown) {
+      return;
+    }
+
+    food.push(randomFood('blue'));
+    draw();
+  }, 5000);
+
+  offlineGreenTimer = setInterval(() => {
+    if (mode !== 'offline' || isPaused || localGameOverShown) {
+      return;
+    }
+
+    food.push(randomFood('green'));
+    draw();
+  }, 20000);
+}
+
+function stopOfflineAppleTimers() {
+  clearInterval(offlineBlueTimer);
+  clearInterval(offlineGreenTimer);
+
+  offlineBlueTimer = null;
+  offlineGreenTimer = null;
+}
 function beginSinglePlayer() {
   mode = 'offline';
   isHost = false;
@@ -341,8 +382,9 @@ function beginSinglePlayer() {
   stopIntroMusic();
   playGameMusic();
 
-  resetLocalGame();
-  showScreen(gameScreen);
+resetLocalGame();
+startOfflineAppleTimers();
+showScreen(gameScreen);
 }
 
 function beginMultiplayerMenu() {
@@ -438,10 +480,11 @@ function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
 }
 
-function randomFood() {
+function randomFood(type = 'red') {
   return {
     x: Math.floor(Math.random() * gridWidth),
-    y: Math.floor(Math.random() * gridHeight)
+    y: Math.floor(Math.random() * gridHeight),
+    type
   };
 }
 
@@ -473,7 +516,7 @@ function resetLocalGame() {
   localScore = 0;
   localAlive = true;
   localGameOverShown = false;
-  food = randomFood();
+  food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
 
@@ -492,7 +535,7 @@ function showOfflineGameOver() {
   localGameOverShown = true;
   setStatus('Game Over');
 
-  stopGameMusic();
+  stopOfflineAppleTimers();
   playGameOverSound();
 
   gameOverLogo.classList.add('show');
@@ -543,7 +586,8 @@ restartBtn.addEventListener('click', () => {
   }
 
   resetLocalGame();
-  playGameMusic();
+startOfflineAppleTimers();
+playGameMusic();
 });
 menuBtn.addEventListener('click', () => {
   if (ws) {
@@ -663,19 +707,25 @@ function drawSnake(snake, color) {
 }
 
 function drawApple() {
-  if (!food) return;
+  for (const apple of food) {
+    if (apple.type === 'blue') {
+      ctx.fillStyle = '#2583ff';
+    } else if (apple.type === 'green') {
+      ctx.fillStyle = '#22c55e';
+    } else {
+      ctx.fillStyle = '#ef4444';
+    }
 
-  ctx.fillStyle = '#ef4444';
-
-  ctx.beginPath();
-  ctx.arc(
-    food.x * drawSize + drawSize / 2,
-    food.y * drawSize + drawSize / 2,
-    drawSize * 0.35,
-    0,
-    Math.PI * 2
-  );
-  ctx.fill();
+    ctx.beginPath();
+    ctx.arc(
+      apple.x * drawSize + drawSize / 2,
+      apple.y * drawSize + drawSize / 2,
+      drawSize * 0.35,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
 }
 
 function drawLocal() {
@@ -806,14 +856,26 @@ function stepLocal() {
 
   localSnake.unshift(head);
 
-  if (
-    head.x === food.x &&
-    head.y === food.y
-  ) {
-    localScore++;
+const foodIndex = food.findIndex((apple) =>
+  head.x === apple.x &&
+  head.y === apple.y
+);
+
+if (foodIndex !== -1) {
+  const eatenApple = food[foodIndex];
+
+  localScore++;
+
+  if (eatenApple.type === 'blue') {
+    localGrow += 8;
+  } else if (eatenApple.type === 'green') {
+    localGrow += 15;
+  } else {
     localGrow += 2;
-    food = randomFood();
   }
+
+  food.splice(foodIndex, 1);
+}
 
   if (localGrow > 0) {
     localGrow--;
