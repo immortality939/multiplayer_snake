@@ -330,7 +330,38 @@ function updateRoomButtons() {
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
 }
+let offlineBlueTimer = null;
+let offlineGreenTimer = null;
 
+function startOfflineAppleTimers() {
+  stopOfflineAppleTimers();
+
+  offlineBlueTimer = setInterval(() => {
+    if (mode !== 'offline' || isPaused || localGameOverShown) {
+      return;
+    }
+
+    food = randomFood('blue');
+    draw();
+  }, 5000);
+
+  offlineGreenTimer = setInterval(() => {
+    if (mode !== 'offline' || isPaused || localGameOverShown) {
+      return;
+    }
+
+    food = randomFood('green');
+    draw();
+  }, 10000);
+}
+
+function stopOfflineAppleTimers() {
+  clearInterval(offlineBlueTimer);
+  clearInterval(offlineGreenTimer);
+
+  offlineBlueTimer = null;
+  offlineGreenTimer = null;
+}
 function beginSinglePlayer() {
   mode = 'offline';
   isHost = false;
@@ -438,10 +469,11 @@ function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
 }
 
-function randomFood() {
+function randomFood(type = 'red') {
   return {
     x: Math.floor(Math.random() * gridWidth),
-    y: Math.floor(Math.random() * gridHeight)
+    y: Math.floor(Math.random() * gridHeight),
+    type
   };
 }
 
@@ -515,12 +547,12 @@ function sendDirection(direction) {
 function togglePause() {
   if (mode === 'online') {
     if (!isHost) {
-      setStatus('Only the host can pause.');
+      setStatus('Only the host can pause or resume.');
       return;
     }
 
     send({
-      type: isPaused ? 'resume' : 'pause'
+      type: 'pause'
     });
 
     return;
@@ -665,17 +697,31 @@ function drawSnake(snake, color) {
 function drawApple() {
   if (!food) return;
 
-  ctx.fillStyle = '#ef4444';
+  if (food.type === 'blue') {
+    ctx.fillStyle = '#2583ff';
+  } else if (food.type === 'green') {
+    ctx.fillStyle = '#22c55e';
+  } else {
+    ctx.fillStyle = '#ef4444';
+  }
 
   ctx.beginPath();
   ctx.arc(
     food.x * drawSize + drawSize / 2,
     food.y * drawSize + drawSize / 2,
-    drawSize * 0.35,
+    drawSize * 0.42,
     0,
     Math.PI * 2
   );
   ctx.fill();
+
+  ctx.fillStyle = '#5b3716';
+  ctx.fillRect(
+    food.x * drawSize + drawSize * 0.42,
+    food.y * drawSize - drawSize * 0.15,
+    drawSize * 0.12,
+    drawSize * 0.25
+  );
 }
 
 function drawLocal() {
@@ -806,14 +852,22 @@ function stepLocal() {
 
   localSnake.unshift(head);
 
-  if (
-    head.x === food.x &&
-    head.y === food.y
-  ) {
-    localScore++;
+if (
+  head.x === food.x &&
+  head.y === food.y
+) {
+  localScore++;
+
+  if (food.type === 'blue') {
+    localGrow += 8;
+  } else if (food.type === 'green') {
+    localGrow += 15;
+  } else {
     localGrow += 2;
-    food = randomFood();
   }
+
+  food = randomFood();
+}
 
   if (localGrow > 0) {
     localGrow--;

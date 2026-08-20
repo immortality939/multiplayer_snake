@@ -41,10 +41,11 @@ function cleanText(value, fallback) {
   return text.slice(0, 18);
 }
 
-function randomFood() {
+function randomFood(type = 'red') {
   return {
     x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT)
+    y: Math.floor(Math.random() * HEIGHT),
+    type
   };
 }
 
@@ -84,8 +85,10 @@ function createRoom(roomName, player) {
     hostId: player.id,
     started: false,
     paused: false,
-    food: randomFood(),
-    players: new Map()
+    food: randomFood('red'),
+    players: new Map(),
+    blueTimer: null,
+    greenTimer: null
   };
 
   room.players.set(player.id, player);
@@ -140,6 +143,15 @@ function broadcastRoom(room, data) {
   }
 }
 
+function broadcastGameState(room) {
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused
+  });
+}
+
 function broadcastRoomState(room) {
   broadcastRoom(room, roomState(room));
 }
@@ -180,7 +192,7 @@ function setDirection(player, direction) {
 }
 
 function resetRoomGame(room) {
-  room.food = randomFood();
+  room.food = randomFood('red');
   room.paused = false;
 
   for (const player of room.players.values()) {
@@ -193,12 +205,36 @@ function resetRoomGame(room) {
   }
 }
 
+function startSpecialAppleTimers(room) {
+  clearInterval(room.blueTimer);
+  clearInterval(room.greenTimer);
+
+  room.blueTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food = randomFood('blue');
+    broadcastGameState(room);
+  }, 5000);
+
+  room.greenTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food = randomFood('green');
+    broadcastGameState(room);
+  }, 10000);
+}
+
 function startRoom(room) {
   if (room.players.size < 1) return;
   if (!allJoinersReady(room)) return;
 
   room.started = true;
   resetRoomGame(room);
+  startSpecialAppleTimers(room);
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -269,8 +305,16 @@ function movePlayer(room, player) {
     head.y === room.food.y
   ) {
     player.score++;
-    player.grow += 2;
-    room.food = randomFood();
+
+    if (room.food.type === 'blue') {
+      player.grow += 8;
+    } else if (room.food.type === 'green') {
+      player.grow += 15;
+    } else {
+      player.grow += 2;
+    }
+
+    room.food = randomFood('red');
   }
 
   if (player.grow > 0) {
@@ -281,18 +325,15 @@ function movePlayer(room, player) {
 }
 
 function gameStep(room) {
-  if (!room.started || room.paused) return;
+  if (!room.started || room.paused) {
+    return;
+  }
 
   for (const player of room.players.values()) {
     movePlayer(room, player);
   }
 
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused
-  });
+  broadcastGameState(room);
 }
 
 function removePlayer(player) {
@@ -303,6 +344,9 @@ function removePlayer(player) {
   room.players.delete(player.id);
 
   if (room.players.size === 0) {
+    clearInterval(room.blueTimer);
+    clearInterval(room.greenTimer);
+
     rooms.delete(room.name.toLowerCase());
     return;
   }
@@ -422,7 +466,9 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (!room || player.host) return;
+        if (!room || player.host) {
+          return;
+        }
 
         player.ready = !player.ready;
         broadcastRoomState(room);
@@ -433,7 +479,9 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (!room || !player.host) return;
+        if (!room || !player.host) {
+          return;
+        }
 
         if (!allJoinersReady(room)) {
           send(ws, {
@@ -456,14 +504,7 @@ wss.on('connection', (ws) => {
         }
 
         room.paused = !room.paused;
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
+        broadcastGameState(room);
         return;
       }
 
@@ -471,17 +512,12 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (!room || !room.started || !player.host) return;
+        if (!room || !room.started || !player.host) {
+          return;
+        }
 
         resetRoomGame(room);
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
+        broadcastGameState(room);
         return;
       }
 
@@ -489,7 +525,9 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (!room || !room.started || room.paused) return;
+        if (!room || !room.started || room.paused) {
+          return;
+        }
 
         setDirection(player, data.dir);
       }
