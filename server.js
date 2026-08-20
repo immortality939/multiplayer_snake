@@ -19,11 +19,20 @@ const WIDTH = 72;
 const HEIGHT = 80;
 const SIZE = 5;
 const TICK = 120;
-const COLORS = ['#ff4d4d', '#4dd2ff', '#7dff4d', '#ffd24d', '#d64dff', '#ff7fbf'];
+
+const COLORS = [
+  '#ff4d4d',
+  '#4dd2ff',
+  '#7dff4d',
+  '#ffd24d',
+  '#d64dff',
+  '#ff7fbf'
+];
 
 let nextId = 1;
 let players = {};
 let food = randomFood();
+let gamePaused = false;
 
 function randomFood() {
   return {
@@ -54,6 +63,7 @@ function spawnSnake(id) {
 
 function cloneState() {
   const out = {};
+
   for (const [id, p] of Object.entries(players)) {
     out[id] = {
       id: p.id,
@@ -64,23 +74,46 @@ function cloneState() {
       dir: p.dir
     };
   }
+
   return out;
 }
 
 function broadcast() {
-  const payload = JSON.stringify({ type: 'state', players: cloneState(), food });
+  const payload = JSON.stringify({
+    type: 'state',
+    players: cloneState(),
+    food,
+    paused: gamePaused
+  });
+
   for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) client.send(payload);
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
   }
 }
 
 function setDir(current, next) {
-  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
-  if (next && next !== opposite[current]) return next;
+  const opposite = {
+    up: 'down',
+    down: 'up',
+    left: 'right',
+    right: 'left'
+  };
+
+  if (next && next !== opposite[current]) {
+    return next;
+  }
+
   return current;
 }
 
 function step() {
+  if (gamePaused) {
+    broadcast();
+    return;
+  }
+
   for (const p of Object.values(players)) {
     if (!p.alive) continue;
 
@@ -92,20 +125,24 @@ function step() {
     if (p.dir === 'left') head.x--;
     if (p.dir === 'right') head.x++;
 
-if (
-  head.x < 0 ||
-  head.x >= WIDTH ||
-  head.y < 0 ||
-  head.y >= HEIGHT
-)
-{
-  p.alive = false;
-  continue;
-}
+    if (
+      head.x < 0 ||
+      head.x >= WIDTH ||
+      head.y < 0 ||
+      head.y >= HEIGHT
+    ) {
+      p.alive = false;
+      continue;
+    }
 
-    const hitsSelf = p.snake.slice(1).some(s => s.x === head.x && s.y === head.y);
-    const hitsOther = Object.values(players).some(other =>
-      other !== p && other.snake.some(s => s.x === head.x && s.y === head.y)
+    const hitsSelf = p.snake
+      .slice(1)
+      .some((s) => s.x === head.x && s.y === head.y);
+
+    const hitsOther = Object.values(players).some((other) =>
+      other !== p &&
+      other.alive &&
+      other.snake.some((s) => s.x === head.x && s.y === head.y)
     );
 
     if (hitsSelf || hitsOther) {
@@ -121,8 +158,11 @@ if (
       food = randomFood();
     }
 
-    if (p.grow > 0) p.grow--;
-    else p.snake.pop();
+    if (p.grow > 0) {
+      p.grow--;
+    } else {
+      p.snake.pop();
+    }
   }
 
   broadcast();
@@ -133,20 +173,37 @@ wss.on('connection', (ws) => {
   players[id] = spawnSnake(id);
 
   ws.send(JSON.stringify({
-  type: 'init',
-  id,
-  width: WIDTH,
-  height: HEIGHT,
-  size: SIZE
-}));
+    type: 'init',
+    id,
+    width: WIDTH,
+    height: HEIGHT,
+    size: SIZE,
+    paused: gamePaused
+  }));
+
   broadcast();
 
   ws.on('message', (msg) => {
     try {
       const data = JSON.parse(msg.toString());
-      if (data.type === 'dir' && players[id]) players[id].nextDir = data.dir;
-      if (data.type === 'restart') players[id] = spawnSnake(id);
-    } catch {}
+
+      if (data.type === 'dir' && players[id] && !gamePaused) {
+        players[id].nextDir = data.dir;
+      }
+
+      if (data.type === 'pause') {
+        gamePaused = !gamePaused;
+        broadcast();
+      }
+
+      if (data.type === 'restart' && players[id]) {
+        players[id] = spawnSnake(id);
+        gamePaused = false;
+        broadcast();
+      }
+    } catch (error) {
+      console.error('Message error:', error.message);
+    }
   });
 
   ws.on('close', () => {
