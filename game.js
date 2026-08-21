@@ -99,6 +99,7 @@ let localGrow = 0;
 let localScore = 0;
 let localAlive = true;
 let localGameOverShown = false;
+let multiplayerWasDead = false;
 
 let offlineBlueTimer = null;
 let offlineGreenTimer = null;
@@ -150,11 +151,16 @@ function stopIntroMusic() {
 }
 
 function playGameMusic() {
-  if (!bgMusic) return;
+  if (!bgMusic) {
+    return;
+  }
 
   bgMusic.volume = 0.35;
   bgMusic.loop = true;
-  bgMusic.play().catch(() => {});
+
+  if (bgMusic.paused) {
+    bgMusic.play().catch(() => {});
+  }
 }
 
 function stopGameMusic() {
@@ -327,6 +333,7 @@ function handleServerMessage(data) {
 
     stopOfflineAppleTimers();
 
+    multiplayerWasDead = false;
     gameOverLogo.classList.remove('show');
 
     if (gameOverSound) {
@@ -358,7 +365,8 @@ function handleServerMessage(data) {
     const me = players[myId];
 
     if (me && !me.alive) {
-      if (!gameOverLogo.classList.contains('show')) {
+      if (!multiplayerWasDead) {
+        multiplayerWasDead = true;
         gameOverLogo.classList.add('show');
         stopGameMusic();
         playGameOverSound();
@@ -366,7 +374,18 @@ function handleServerMessage(data) {
 
       setStatus('Game Over');
     } else {
-      gameOverLogo.classList.remove('show');
+      if (multiplayerWasDead) {
+        multiplayerWasDead = false;
+        gameOverLogo.classList.remove('show');
+
+        if (gameOverSound) {
+          gameOverSound.pause();
+          gameOverSound.currentTime = 0;
+        }
+
+        playGameMusic();
+      }
+
       setStatus(isPaused ? 'Paused' : 'Connected');
     }
 
@@ -1486,6 +1505,7 @@ menuBtn.addEventListener('click', () => {
   }
 
   gameOverLogo.classList.remove('show');
+  multiplayerWasDead = false;
 
   mode = 'menu';
   isHost = false;
