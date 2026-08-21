@@ -506,3 +506,86 @@ canvas {
     gap: 28px;
   }
 }
+.room-level-box {
+  width: 100%;
+  max-height: 230px;
+  margin-top: 24px;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 3px solid #38bdf8;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow:
+    0 0 16px rgba(56, 189, 248, 0.4),
+    inset 0 0 10px rgba(14, 165, 233, 0.2);
+  scrollbar-color: #38bdf8 #0f172a;
+  scrollbar-width: thin;
+}
+
+.room-level-box h3 {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  margin: -16px -16px 14px;
+  padding: 14px 10px;
+  border-bottom: 1px solid #38bdf8;
+  color: #bae6fd;
+  background: #0f172a;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 16px;
+}
+
+.room-level-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.room-level-button {
+  width: 100%;
+  margin-top: 0;
+  padding: 10px 6px;
+  border: 2px solid #64748b;
+  border-radius: 9px;
+  color: #fff;
+  background: #334155;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.room-level-button:hover:not(:disabled) {
+  border-color: #bae6fd;
+  background: #2563eb;
+}
+
+.room-level-button.selected {
+  border-color: #fde047;
+  background: #15803d;
+  box-shadow:
+    0 0 10px rgba(250, 204, 21, 0.8);
+}
+
+.room-level-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+#roomLevelStatus {
+  margin-top: 12px;
+  color: #facc15;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .room-level-box {
+    max-height: 210px;
+  }
+
+  .room-level-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

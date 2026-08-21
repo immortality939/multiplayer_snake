@@ -358,7 +358,92 @@ function startRoom(room) {
     paused: room.paused
   });
 }
+function createLevelObstacles(level) {
+  if (level === 1) {
+    return [];
+  }
 
+  const result = [];
+  const middleY = Math.floor(HEIGHT / 2);
+
+  if (
+    level === 2 ||
+    level === 3 ||
+    level === 4
+  ) {
+    for (let x = 18; x < WIDTH - 18; x++) {
+      result.push({
+        x,
+        y: middleY
+      });
+    }
+  }
+
+  if (level === 3) {
+    const middleX = Math.floor(WIDTH / 2);
+
+    for (let y = 10; y < HEIGHT - 10; y++) {
+      result.push({
+        x: middleX,
+        y
+      });
+    }
+  }
+
+  if (level === 4) {
+    const middleX = Math.floor(WIDTH / 2);
+
+    const horizontalGapStart =
+      Math.floor(WIDTH / 2) - 4;
+
+    const horizontalGapEnd =
+      Math.floor(WIDTH / 2) + 4;
+
+    const verticalGapStart =
+      Math.floor(HEIGHT / 2) - 4;
+
+    const verticalGapEnd =
+      Math.floor(HEIGHT / 2) + 4;
+
+    result.length = 0;
+
+    for (let x = 12; x < WIDTH - 12; x++) {
+      if (
+        x < horizontalGapStart ||
+        x > horizontalGapEnd
+      ) {
+        result.push({
+          x,
+          y: middleY - 10
+        });
+
+        result.push({
+          x,
+          y: middleY + 10
+        });
+      }
+    }
+
+    for (let y = 12; y < HEIGHT - 12; y++) {
+      if (
+        y < verticalGapStart ||
+        y > verticalGapEnd
+      ) {
+        result.push({
+          x: middleX - 14,
+          y
+        });
+
+        result.push({
+          x: middleX + 14,
+          y
+        });
+      }
+    }
+  }
+
+  return result;
+}
 function movePlayer(room, player) {
   if (!player.alive) {
     return;
@@ -399,7 +484,13 @@ function movePlayer(room, player) {
       segment.x === head.x &&
       segment.y === head.y
     );
+  const obstacles =
+    createLevelObstacles(room.level);
 
+  const hitsObstacle = obstacles.some((block) =>
+    block.x === head.x &&
+    block.y === head.y
+  );
   const hitsOther = Array.from(room.players.values())
     .filter((other) =>
       other.id !== player.id &&
@@ -415,6 +506,7 @@ function movePlayer(room, player) {
   if (
     outside ||
     hitsSelf ||
+    hitsObstacle ||
     hitsOther
   ) {
     player.alive = false;
