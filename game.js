@@ -35,7 +35,11 @@ const playerList = document.getElementById('playerList');
 const readyBtn = document.getElementById('readyBtn');
 const startRoomBtn = document.getElementById('startRoomBtn');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+const roomLevelButtons =
+  document.querySelectorAll('.room-level-button');
 
+const roomLevelStatus =
+  document.getElementById('roomLevelStatus');
 const roomMessage = document.getElementById('roomMessage');
 const roomStatus = document.getElementById('roomStatus');
 
@@ -60,6 +64,7 @@ let ws = null;
 let socketReadyPromise = null;
 let mode = 'menu';
 let selectedLevel = 1;
+let multiplayerLevel = 1;
 let obstacles = [];
 let isHost = false;
 let myId = null;
@@ -291,20 +296,28 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'roomState') {
-  currentRoom = data.room;
-  isPaused = Boolean(data.paused);
+    currentRoom = data.room;
+    isPaused = Boolean(data.paused);
 
-  isHost = data.hostId === myId;
+    isHost = data.hostId === myId;
+    multiplayerLevel = data.level || 1;
+    selectedLevel = multiplayerLevel;
 
-  renderRoom(data);
-  updateRoomButtons();
+    renderRoom(data);
+    updateRoomButtons();
+    updateRoomLevelButtons();
 
-  return;
-}
+    return;
+  }
 
-  if (data.type === 'gameStart') {
+    if (data.type === 'gameStart') {
     mode = 'online';
     isPaused = Boolean(data.paused);
+
+    multiplayerLevel = data.level || 1;
+    selectedLevel = multiplayerLevel;
+    obstacles = createLevelObstacles();
+
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
@@ -317,7 +330,7 @@ function handleServerMessage(data) {
     playGameMusic();
     showScreen(gameScreen);
     updatePauseButton();
-    setStatus('Connected');
+    setStatus(`Level ${multiplayerLevel}`);
     draw();
     return;
   }
@@ -453,6 +466,23 @@ function escapeHtml(value) {
 function updateRoomButtons() {
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
+}
+
+function updateRoomLevelButtons() {
+  roomLevelButtons.forEach((button) => {
+    const level = Number(button.dataset.level);
+
+    button.disabled = !isHost;
+
+    button.classList.toggle(
+      'selected',
+      level === multiplayerLevel
+    );
+  });
+
+  roomLevelStatus.textContent =
+    `Level ${multiplayerLevel} selected` +
+    (isHost ? '' : ' by host');
 }
 
 function randomFood(type = 'red') {
@@ -1135,6 +1165,28 @@ startRoomBtn.addEventListener('click', () => {
 });
 
 leaveRoomBtn.addEventListener('click', leaveRoom);
+leaveRoomBtn.addEventListener('click', leaveRoom);
+
+roomLevelButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!isHost) {
+      return;
+    }
+
+    const level = Number(button.dataset.level);
+
+    multiplayerLevel = level;
+    selectedLevel = level;
+
+    send({
+      type: 'selectLevel',
+      level
+    });
+
+    updateRoomLevelButtons();
+  });
+});
+
 
 function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
@@ -1586,6 +1638,7 @@ function drawLocal() {
 }
 
 function drawOnline() {
+  drawObstacles();
   drawApple();
 
   for (const player of Object.values(players)) {

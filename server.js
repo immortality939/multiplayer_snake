@@ -150,6 +150,7 @@ function createRoom(roomName, player) {
     hostId: player.id,
     started: false,
     paused: false,
+    level: 1,
     food: [randomFood('red')],
     blueTimer: null,
     greenTimer: null,
@@ -201,6 +202,7 @@ function roomState(room) {
     hostId: room.hostId,
     started: room.started,
     paused: room.paused,
+    level: room.level,
     players: publicPlayers(room)
   };
 }
@@ -352,7 +354,8 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: room.paused
+    paused: room.paused,
+    level: room.level
   });
 }
 
@@ -468,7 +471,8 @@ function gameStep(room) {
     type: 'state',
     players: publicPlayers(room),
     food: room.food,
-    paused: room.paused
+    paused: room.paused,
+    level: room.level
   });
 }
 
@@ -630,7 +634,28 @@ wss.on('connection', (ws) => {
         broadcastRoomState(room);
         return;
       }
+      if (data.type === 'selectLevel') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
 
+        if (
+          !room ||
+          room.started ||
+          !player.host
+        ) {
+          return;
+        }
+
+        const level = Number(data.level);
+
+        if (![1, 2, 3, 4, 5].includes(level)) {
+          return;
+        }
+
+        room.level = level;
+        broadcastRoomState(room);
+        return;
+      }
       if (data.type === 'ready') {
         const player = client.player;
         const room = player && getRoom(player.roomName);
