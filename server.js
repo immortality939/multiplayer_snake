@@ -897,20 +897,6 @@ wss.on('connection', (ws) => {
         return;
       }
 
-        resetRoomGame(room);
-        startFoodTimers(room);
-
-        broadcastRoom(room, {
-          type: 'state',
-          level: room.level,
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
-        return;
-      }
-
       if (data.type === 'dir') {
         const player = client.player;
         const room = player && getRoom(player.roomName);
