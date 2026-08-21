@@ -1,11 +1,21 @@
 const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
 
 const mainMenu = document.getElementById('mainMenu');
+const levelScreen = document.getElementById('levelScreen');
 const multiplayerMenu = document.getElementById('multiplayerMenu');
 const roomScreen = document.getElementById('roomScreen');
 const gameScreen = document.getElementById('gameScreen');
 
 const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+const level1Btn = document.getElementById('level1Btn');
+const level2Btn = document.getElementById('level2Btn');
+const level3Btn = document.getElementById('level3Btn');
+const level4Btn = document.getElementById('level4Btn');
+const level5Btn =
+  document.getElementById('level5Btn');
+const backFromLevelBtn =
+  document.getElementById('backFromLevelBtn');
+
 const multiplayerBtn = document.getElementById('multiplayerBtn');
 const backToMenuBtn = document.getElementById('backToMenuBtn');
 
@@ -49,6 +59,8 @@ gameBackground.src = 'Sbackground.jpg';
 let ws = null;
 let socketReadyPromise = null;
 let mode = 'menu';
+let selectedLevel = 1;
+let obstacles = [];
 let isHost = false;
 let myId = null;
 let currentRoom = '';
@@ -91,6 +103,7 @@ let enemies = [];
 
 function showScreen(screen) {
   mainMenu.classList.add('hidden');
+  levelScreen.classList.add('hidden');
   multiplayerMenu.classList.add('hidden');
   roomScreen.classList.add('hidden');
   gameScreen.classList.add('hidden');
@@ -443,9 +456,61 @@ function updateRoomButtons() {
 }
 
 function randomFood(type = 'red') {
+  const freeCells = [];
+
+  for (let x = 0; x < gridWidth; x++) {
+    for (let y = 0; y < gridHeight; y++) {
+      const blockedByObstacle = obstacles.some((block) =>
+        block.x === x &&
+        block.y === y
+      );
+
+      const blockedBySnake =
+        localSnake.some((part) =>
+          part.x === x &&
+          part.y === y
+        );
+
+      const blockedByEnemy = enemies.some((enemy) =>
+        enemy.alive &&
+        enemy.snake.some((part) =>
+          part.x === x &&
+          part.y === y
+        )
+      );
+
+      const alreadyHasFood = food.some((apple) =>
+        apple.x === x &&
+        apple.y === y
+      );
+
+      if (
+        !blockedByObstacle &&
+        !blockedBySnake &&
+        !blockedByEnemy &&
+        !alreadyHasFood
+      ) {
+        freeCells.push({ x, y });
+      }
+    }
+  }
+
+  if (!freeCells.length) {
+    return {
+      x: 0,
+      y: 0,
+      type
+    };
+  }
+
+  const position =
+    freeCells[
+      Math.floor(Math.random() * freeCells.length)
+    ];
+
   return {
-    x: Math.floor(Math.random() * gridWidth),
-    y: Math.floor(Math.random() * gridHeight),
+    x: position.x,
+    y: position.y,
     type
   };
 }
@@ -575,6 +640,65 @@ function enemyMoveIsDangerous(position, enemy) {
     return true;
   }
 
+  const hitsObstacle = obstacles.some((block) =>
+    block.x === position.x &&
+    block.y === position.y
+  );
+
+  if (hitsObstacle) {
+    return true;
+  }
+
+  const hitsOwnBody = enemy.snake
+    .slice(1)
+    .some((part) =>
+      part.x === position.x &&
+      part.y === position.y
+    );
+
+  if (hitsOwnBody) {
+    return true;
+  }
+
+  const hitsPlayer = localSnake.some((part) =>
+    part.x === position.x &&
+    part.y === position.y
+  );
+
+  if (hitsPlayer) {
+    return true;
+  }
+
+  const hitsAnotherEnemy = enemies.some((other) =>
+    other !== enemy &&
+    other.alive &&
+    other.snake.some((part) =>
+      part.x === position.x &&
+      part.y === position.y
+    )
+  );
+
+  return hitsAnotherEnemy;
+}
+function isBlockedForEnemy(position, enemy) {
+  if (
+    position.x < 0 ||
+    position.x >= gridWidth ||
+    position.y < 0 ||
+    position.y >= gridHeight
+  ) {
+    return true;
+  }
+
+  const hitsObstacle = obstacles.some((block) =>
+    block.x === position.x &&
+    block.y === position.y
+  );
+
+  if (hitsObstacle) {
+    return true;
+  }
+
   const hitsOwnBody = enemy.snake
     .slice(1)
     .some((part) =>
@@ -607,9 +731,86 @@ function enemyMoveIsDangerous(position, enemy) {
   return hitsAnotherEnemy;
 }
 
+function findEnemyPath(enemy, target) {
+  const start = enemy.snake[0];
+
+  const directions = [
+    { name: 'up', dx: 0, dy: -1 },
+    { name: 'down', dx: 0, dy: 1 },
+    { name: 'left', dx: -1, dy: 0 },
+    { name: 'right', dx: 1, dy: 0 }
+  ];
+
+  const queue = [
+    {
+      x: start.x,
+      y: start.y,
+      firstDirection: null
+    }
+  ];
+
+  const visited = new Set([
+    `${start.x},${start.y}`
+  ]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+
+    if (
+      current.x === target.x &&
+      current.y === target.y
+    ) {
+      return current.firstDirection;
+    }
+
+    for (const direction of directions) {
+      const next = {
+        x: current.x + direction.dx,
+        y: current.y + direction.dy
+      };
+
+      const key = `${next.x},${next.y}`;
+
+      if (visited.has(key)) {
+        continue;
+      }
+
+      if (
+        isBlockedForEnemy(next, enemy) &&
+        !(
+          next.x === target.x &&
+          next.y === target.y
+        )
+      ) {
+        continue;
+      }
+
+      visited.add(key);
+
+      queue.push({
+        x: next.x,
+        y: next.y,
+        firstDirection:
+          current.firstDirection || direction.name
+      });
+    }
+  }
+
+  return null;
+}
 function chooseEnemyDirection(enemy) {
   const target = getNearestEnemyApple(enemy);
-  const current = enemy.dir;
+
+  if (!target) {
+    return enemy.dir;
+  }
+
+  const pathDirection =
+    findEnemyPath(enemy, target);
+
+  if (pathDirection) {
+    return pathDirection;
+  }
 
   const opposite = {
     up: 'down',
@@ -626,7 +827,7 @@ function chooseEnemyDirection(enemy) {
   ];
 
   const safeDirections = directions.filter((direction) => {
-    if (direction === opposite[current]) {
+    if (direction === opposite[enemy.dir]) {
       return false;
     }
 
@@ -635,43 +836,13 @@ function chooseEnemyDirection(enemy) {
       direction
     );
 
-    return !enemyMoveIsDangerous(
+    return !isBlockedForEnemy(
       nextPosition,
       enemy
     );
   });
 
-  if (!safeDirections.length) {
-    return null;
-  }
-
-  if (!target) {
-    return safeDirections[0];
-  }
-
-  safeDirections.sort((a, b) => {
-    const positionA = getNextEnemyPosition(
-      enemy.snake[0],
-      a
-    );
-
-    const positionB = getNextEnemyPosition(
-      enemy.snake[0],
-      b
-    );
-
-    const distanceA =
-      Math.abs(positionA.x - target.x) +
-      Math.abs(positionA.y - target.y);
-
-    const distanceB =
-      Math.abs(positionB.x - target.x) +
-      Math.abs(positionB.y - target.y);
-
-    return distanceA - distanceB;
-  });
-
-  return safeDirections[0];
+  return safeDirections[0] || null;
 }
 
 function moveEnemy(enemy) {
@@ -787,6 +958,11 @@ function stopOfflineAppleTimers() {
 }
 
 function beginSinglePlayer() {
+  mode = 'level-select';
+  showScreen(levelScreen);
+}
+function startSelectedLevel(level) {
+  selectedLevel = level;
   mode = 'offline';
   isHost = false;
   currentRoom = '';
@@ -801,7 +977,6 @@ function beginSinglePlayer() {
   startOfflineAppleTimers();
   showScreen(gameScreen);
 }
-
 function beginMultiplayerMenu() {
   mode = 'multiplayer-menu';
 
@@ -915,6 +1090,26 @@ function leaveRoom() {
 }
 
 singlePlayerBtn.addEventListener('click', beginSinglePlayer);
+level1Btn.addEventListener('click', () => {
+  startSelectedLevel(1);
+});
+
+level2Btn.addEventListener('click', () => {
+  startSelectedLevel(2);
+});
+level3Btn.addEventListener('click', () => {
+  startSelectedLevel(3);
+});
+level4Btn.addEventListener('click', () => {
+  startSelectedLevel(4);
+});
+level5Btn.addEventListener('click', () => {
+  startSelectedLevel(5);
+});
+backFromLevelBtn.addEventListener('click', () => {
+  showScreen(mainMenu);
+  mode = 'menu';
+});
 multiplayerBtn.addEventListener('click', beginMultiplayerMenu);
 
 backToMenuBtn.addEventListener('click', () => {
@@ -975,6 +1170,7 @@ function resetLocalGame() {
   localGameOverShown = false;
   isPaused = false;
   enemies = [];
+  obstacles = createLevelObstacles();
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -988,7 +1184,135 @@ function resetLocalGame() {
   setStatus('Offline');
   draw();
 }
+function createLevelObstacles() {
+  if (selectedLevel === 1) {
+    return [];
+  }
 
+  const result = [];
+  const middleY = Math.floor(gridHeight / 2);
+
+  if (
+    selectedLevel === 2 ||
+    selectedLevel === 3 ||
+    selectedLevel === 4
+  ) {
+    for (let x = 18; x < gridWidth - 18; x++) {
+      result.push({
+        x,
+        y: middleY
+      });
+    }
+  }
+
+  if (selectedLevel === 3) {
+    const middleX = Math.floor(gridWidth / 2);
+
+    for (let y = 10; y < gridHeight - 10; y++) {
+      result.push({
+        x: middleX,
+        y
+      });
+    }
+  }
+
+  if (selectedLevel === 4) {
+    const middleX = Math.floor(gridWidth / 2);
+
+    const horizontalGapStart =
+      Math.floor(gridWidth / 2) - 4;
+
+    const horizontalGapEnd =
+      Math.floor(gridWidth / 2) + 4;
+
+    const verticalGapStart =
+      Math.floor(gridHeight / 2) - 4;
+
+    const verticalGapEnd =
+      Math.floor(gridHeight / 2) + 4;
+
+    result.length = 0;
+
+    for (let x = 12; x < gridWidth - 12; x++) {
+      if (
+        x < horizontalGapStart ||
+        x > horizontalGapEnd
+      ) {
+        result.push({
+          x,
+          y: middleY - 10
+        });
+
+        result.push({
+          x,
+          y: middleY + 10
+        });
+      }
+    }
+
+    for (let y = 12; y < gridHeight - 12; y++) {
+      if (
+        y < verticalGapStart ||
+        y > verticalGapEnd
+      ) {
+        result.push({
+          x: middleX - 14,
+          y
+        });
+
+        result.push({
+          x: middleX + 14,
+          y
+        });
+      }
+    }
+  }
+  if (selectedLevel === 5) {
+    const rows = [
+      {
+        y: 15,
+        start: 12,
+        end: gridWidth - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 30,
+        start: 14,
+        end: gridWidth - 12,
+        openingSide: 'left'
+      },
+      {
+        y: 45,
+        start: 12,
+        end: gridWidth - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 60,
+        start: 14,
+        end: gridWidth - 12,
+        openingSide: 'left'
+      }
+    ];
+
+    for (const row of rows) {
+      for (let x = row.start; x <= row.end; x++) {
+        const hasOpening =
+          row.openingSide === 'left'
+            ? x < row.start + 8
+            : x > row.end - 8;
+
+        if (!hasOpening) {
+          result.push({
+            x,
+            y: row.y
+          });
+        }
+      }
+    }
+  }
+  return result;
+}
 function showOfflineGameOver() {
   if (localGameOverShown) return;
 
@@ -1222,7 +1546,33 @@ function drawApple() {
   }
 }
 
+function drawObstacles() {
+  ctx.fillStyle = '#64748b';
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+
+  for (const block of obstacles) {
+    const x = block.x * drawSize;
+    const y = block.y * drawSize;
+
+    ctx.fillRect(
+      x,
+      y,
+      drawSize,
+      drawSize
+    );
+
+    ctx.strokeRect(
+      x,
+      y,
+      drawSize,
+      drawSize
+    );
+  }
+}
+
 function drawLocal() {
+  drawObstacles();
   drawApple();
   drawSnake(localSnake, '#008cff');
 
@@ -1361,11 +1711,15 @@ function stepLocal() {
       part.y === head.y
     )
   );
-
+  const hitsObstacle = obstacles.some((block) =>
+    block.x === head.x &&
+    block.y === head.y
+  );
   if (
     outside ||
     hitsSelf ||
-    hitsEnemy
+    hitsEnemy ||
+    hitsObstacle
   ) {
     showOfflineGameOver();
     return;

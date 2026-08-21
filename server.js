@@ -146,11 +146,12 @@ roomName: ''
 
 function createRoom(roomName, player) {
   const room = {
-    name: roomName,
-    hostId: player.id,
-    started: false,
-    paused: false,
-    food: [randomFood('red')],
+  name: roomName,
+  hostId: player.id,
+  started: false,
+  paused: false,
+  level: 1,
+  food: [randomFood('red')],
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -201,6 +202,7 @@ function roomState(room) {
     hostId: room.hostId,
     started: room.started,
     paused: room.paused,
+    level: room.level,
     players: publicPlayers(room)
   };
 }
@@ -350,6 +352,7 @@ function startRoom(room) {
     width: WIDTH,
     height: HEIGHT,
     size: SIZE,
+    level: room.level,
     players: publicPlayers(room),
     food: room.food,
     paused: room.paused
@@ -630,6 +633,39 @@ wss.on('connection', (ws) => {
         broadcastRoomState(room);
         return;
       }
+      
+      if (data.type === 'selectLevel') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
+
+        if (
+          !room ||
+          room.started ||
+          !player.host
+        ) {
+          return;
+        }
+
+        const level = Number(data.level);
+
+        if (
+          !Number.isInteger(level) ||
+          level < 1 ||
+          level > 5
+        ) {
+          send(ws, {
+            type: 'error',
+            message: 'Invalid level.'
+          });
+
+          return;
+        }
+
+        room.level = level;
+        broadcastRoomState(room);
+        return;
+      }
+
 
       if (data.type === 'ready') {
         const player = client.player;
