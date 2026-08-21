@@ -35,11 +35,7 @@ const playerList = document.getElementById('playerList');
 const readyBtn = document.getElementById('readyBtn');
 const startRoomBtn = document.getElementById('startRoomBtn');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-const roomLevelButtons =
-  document.querySelectorAll('.room-level-button');
 
-const roomLevelStatus =
-  document.getElementById('roomLevelStatus');
 const roomMessage = document.getElementById('roomMessage');
 const roomStatus = document.getElementById('roomStatus');
 
@@ -64,7 +60,6 @@ let ws = null;
 let socketReadyPromise = null;
 let mode = 'menu';
 let selectedLevel = 1;
-let multiplayerLevel = 1;
 let obstacles = [];
 let isHost = false;
 let myId = null;
@@ -99,7 +94,6 @@ let localGrow = 0;
 let localScore = 0;
 let localAlive = true;
 let localGameOverShown = false;
-let multiplayerWasDead = false;
 
 let offlineBlueTimer = null;
 let offlineGreenTimer = null;
@@ -151,16 +145,11 @@ function stopIntroMusic() {
 }
 
 function playGameMusic() {
-  if (!bgMusic) {
-    return;
-  }
+  if (!bgMusic) return;
 
   bgMusic.volume = 0.35;
   bgMusic.loop = true;
-
-  if (bgMusic.paused) {
-    bgMusic.play().catch(() => {});
-  }
+  bgMusic.play().catch(() => {});
 }
 
 function stopGameMusic() {
@@ -302,28 +291,20 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'roomState') {
-    currentRoom = data.room;
-    isPaused = Boolean(data.paused);
+  currentRoom = data.room;
+  isPaused = Boolean(data.paused);
 
-    isHost = data.hostId === myId;
-    multiplayerLevel = data.level || 1;
-    selectedLevel = multiplayerLevel;
+  isHost = data.hostId === myId;
 
-    renderRoom(data);
-    updateRoomButtons();
-    updateRoomLevelButtons();
+  renderRoom(data);
+  updateRoomButtons();
 
-    return;
-  }
+  return;
+}
 
   if (data.type === 'gameStart') {
     mode = 'online';
     isPaused = Boolean(data.paused);
-
-    multiplayerLevel = data.level || 1;
-    selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles();
-
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
@@ -332,15 +313,6 @@ function handleServerMessage(data) {
     size = data.size || size;
 
     stopOfflineAppleTimers();
-
-    multiplayerWasDead = false;
-    gameOverLogo.classList.remove('show');
-
-    if (gameOverSound) {
-      gameOverSound.pause();
-      gameOverSound.currentTime = 0;
-    }
-
     stopIntroMusic();
     playGameMusic();
     showScreen(gameScreen);
@@ -353,44 +325,12 @@ function handleServerMessage(data) {
   if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
-
-    selectedLevel = data.level || selectedLevel;
-    obstacles = createLevelObstacles();
-
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
     updatePauseButton();
-
-    const me = players[myId];
-
-    if (me && !me.alive) {
-      if (!multiplayerWasDead) {
-        multiplayerWasDead = true;
-        gameOverLogo.classList.add('show');
-        stopGameMusic();
-        playGameOverSound();
-      }
-
-      setStatus('Game Over');
-    } else {
-      if (multiplayerWasDead) {
-        multiplayerWasDead = false;
-        gameOverLogo.classList.remove('show');
-
-        if (gameOverSound) {
-          gameOverSound.pause();
-          gameOverSound.currentTime = 0;
-        }
-
-        playGameMusic();
-      }
-
-      setStatus(isPaused ? 'Paused' : 'Connected');
-    }
-
+    setStatus(isPaused ? 'Paused' : 'Connected');
     draw();
-    return;
   }
 }
 
@@ -486,14 +426,11 @@ function renderRoom(data) {
 
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
-  startRoomBtn.disabled =
-    !isHost ||
-    !allReady ||
-    !multiplayerLevel;
+  startRoomBtn.disabled = !isHost || !allReady;
 
   readyBtn.textContent = isReady ? 'Not Ready' : 'Ready';
 
-    setRoomStatus(
+  setRoomStatus(
     isHost
       ? allReady
         ? 'All players are ready.'
@@ -502,8 +439,6 @@ function renderRoom(data) {
         ? 'You are ready.'
         : 'Tap Ready when you are ready.'
   );
-
-  updateRoomLevelButtons();
 }
 
 function escapeHtml(value) {
@@ -519,23 +454,7 @@ function updateRoomButtons() {
   readyBtn.classList.toggle('hidden', isHost);
   startRoomBtn.classList.toggle('hidden', !isHost);
 }
-function updateRoomLevelButtons() {
-  roomLevelButtons.forEach((button) => {
-    const level =
-      Number(button.dataset.level);
 
-    button.disabled = !isHost;
-
-    button.classList.toggle(
-      'selected',
-      level === multiplayerLevel
-    );
-  });
-
-  roomLevelStatus.textContent =
-    `Level ${multiplayerLevel} selected` +
-    (isHost ? '' : ' by host');
-}
 function randomFood(type = 'red') {
   const freeCells = [];
 
@@ -1216,26 +1135,7 @@ startRoomBtn.addEventListener('click', () => {
 });
 
 leaveRoomBtn.addEventListener('click', leaveRoom);
-roomLevelButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    if (!isHost) {
-      return;
-    }
 
-    const level =
-      Number(button.dataset.level);
-
-    multiplayerLevel = level;
-    selectedLevel = level;
-
-    send({
-      type: 'selectLevel',
-      level
-    });
-
-    updateRoomLevelButtons();
-  });
-});
 function updatePauseButton() {
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
 }
@@ -1505,7 +1405,6 @@ menuBtn.addEventListener('click', () => {
   }
 
   gameOverLogo.classList.remove('show');
-  multiplayerWasDead = false;
 
   mode = 'menu';
   isHost = false;
@@ -1687,7 +1586,6 @@ function drawLocal() {
 }
 
 function drawOnline() {
-  drawObstacles();
   drawApple();
 
   for (const player of Object.values(players)) {

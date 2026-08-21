@@ -146,12 +146,11 @@ roomName: ''
 
 function createRoom(roomName, player) {
   const room = {
-  name: roomName,
-  hostId: player.id,
-  started: false,
-  paused: false,
-  level: 1,
-  food: [randomFood('red')],
+    name: roomName,
+    hostId: player.id,
+    started: false,
+    paused: false,
+    food: [randomFood('red')],
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -202,7 +201,6 @@ function roomState(room) {
     hostId: room.hostId,
     started: room.started,
     paused: room.paused,
-    level: room.level,
     players: publicPlayers(room)
   };
 }
@@ -309,7 +307,6 @@ function startFoodTimers(room) {
 
     broadcastRoom(room, {
       type: 'state',
-      level: room.level,
       players: publicPlayers(room),
       food: room.food,
       paused: room.paused
@@ -328,7 +325,6 @@ function startFoodTimers(room) {
 
     broadcastRoom(room, {
       type: 'state',
-      level: room.level,
       players: publicPlayers(room),
       food: room.food,
       paused: room.paused
@@ -354,140 +350,12 @@ function startRoom(room) {
     width: WIDTH,
     height: HEIGHT,
     size: SIZE,
-    level: room.level,
     players: publicPlayers(room),
     food: room.food,
     paused: room.paused
   });
 }
-function createLevelObstacles(level) {
-  if (level === 1) {
-    return [];
-  }
 
-  const result = [];
-  const middleY = Math.floor(HEIGHT / 2);
-
-  if (
-    level === 2 ||
-    level === 3
-  ) {
-    for (let x = 18; x < WIDTH - 18; x++) {
-      result.push({
-        x,
-        y: middleY
-      });
-    }
-  }
-
-  if (level === 3) {
-    const middleX = Math.floor(WIDTH / 2);
-
-    for (let y = 10; y < HEIGHT - 10; y++) {
-      result.push({
-        x: middleX,
-        y
-      });
-    }
-  }
-
-  if (level === 4) {
-    const middleX = Math.floor(WIDTH / 2);
-
-    const horizontalGapStart =
-      Math.floor(WIDTH / 2) - 4;
-
-    const horizontalGapEnd =
-      Math.floor(WIDTH / 2) + 4;
-
-    const verticalGapStart =
-      Math.floor(HEIGHT / 2) - 4;
-
-    const verticalGapEnd =
-      Math.floor(HEIGHT / 2) + 4;
-
-    for (let x = 12; x < WIDTH - 12; x++) {
-      if (
-        x < horizontalGapStart ||
-        x > horizontalGapEnd
-      ) {
-        result.push({
-          x,
-          y: middleY - 10
-        });
-
-        result.push({
-          x,
-          y: middleY + 10
-        });
-      }
-    }
-
-    for (let y = 12; y < HEIGHT - 12; y++) {
-      if (
-        y < verticalGapStart ||
-        y > verticalGapEnd
-      ) {
-        result.push({
-          x: middleX - 14,
-          y
-        });
-
-        result.push({
-          x: middleX + 14,
-          y
-        });
-      }
-    }
-  }
-
-  if (level === 5) {
-    const rows = [
-      {
-        y: 15,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 30,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      },
-      {
-        y: 45,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 60,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      }
-    ];
-
-    for (const row of rows) {
-      for (let x = row.start; x <= row.end; x++) {
-        const hasOpening =
-          row.openingSide === 'left'
-            ? x < row.start + 8
-            : x > row.end - 8;
-
-        if (!hasOpening) {
-          result.push({
-            x,
-            y: row.y
-          });
-        }
-      }
-    }
-  }
-
-  return result;
-}
 function movePlayer(room, player) {
   if (!player.alive) {
     return;
@@ -529,14 +397,6 @@ function movePlayer(room, player) {
       segment.y === head.y
     );
 
-  const obstacles =
-    createLevelObstacles(room.level);
-
-  const hitsObstacle = obstacles.some((block) =>
-    block.x === head.x &&
-    block.y === head.y
-  );
-
   const hitsOther = Array.from(room.players.values())
     .filter((other) =>
       other.id !== player.id &&
@@ -552,7 +412,6 @@ function movePlayer(room, player) {
   if (
     outside ||
     hitsSelf ||
-    hitsObstacle ||
     hitsOther
   ) {
     player.alive = false;
@@ -607,7 +466,6 @@ function gameStep(room) {
 
   broadcastRoom(room, {
     type: 'state',
-    level: room.level,
     players: publicPlayers(room),
     food: room.food,
     paused: room.paused
@@ -772,39 +630,6 @@ wss.on('connection', (ws) => {
         broadcastRoomState(room);
         return;
       }
-      
-      if (data.type === 'selectLevel') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          room.started ||
-          !player.host
-        ) {
-          return;
-        }
-
-        const level = Number(data.level);
-
-        if (
-          !Number.isInteger(level) ||
-          level < 1 ||
-          level > 5
-        ) {
-          send(ws, {
-            type: 'error',
-            message: 'Invalid level.'
-          });
-
-          return;
-        }
-
-        room.level = level;
-        broadcastRoomState(room);
-        return;
-      }
-
 
       if (data.type === 'ready') {
         const player = client.player;
@@ -862,7 +687,6 @@ wss.on('connection', (ws) => {
 
         broadcastRoom(room, {
           type: 'state',
-          level: room.level,
           players: publicPlayers(room),
           food: room.food,
           paused: room.paused
@@ -888,7 +712,6 @@ wss.on('connection', (ws) => {
 
         broadcastRoom(room, {
           type: 'state',
-          level: room.level,
           players: publicPlayers(room),
           food: room.food,
           paused: room.paused
