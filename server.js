@@ -888,6 +888,21 @@ wss.on('connection', (ws) => {
 
         broadcastRoom(room, {
           type: 'state',
+          level: room.level,
+          players: publicPlayers(room),
+          food: room.food,
+          paused: room.paused
+        });
+
+        return;
+      }
+
+        resetRoomGame(room);
+        startFoodTimers(room);
+
+        broadcastRoom(room, {
+          type: 'state',
+          level: room.level,
           players: publicPlayers(room),
           food: room.food,
           paused: room.paused

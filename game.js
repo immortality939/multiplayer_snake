@@ -326,6 +326,14 @@ function handleServerMessage(data) {
     size = data.size || size;
 
     stopOfflineAppleTimers();
+
+    gameOverLogo.classList.remove('show');
+
+    if (gameOverSound) {
+      gameOverSound.pause();
+      gameOverSound.currentTime = 0;
+    }
+
     stopIntroMusic();
     playGameMusic();
     showScreen(gameScreen);
@@ -350,14 +358,22 @@ function handleServerMessage(data) {
     const me = players[myId];
 
     if (me && !me.alive) {
+      if (!gameOverLogo.classList.contains('show')) {
+        gameOverLogo.classList.add('show');
+        stopGameMusic();
+        playGameOverSound();
+      }
+
       setStatus('Game Over');
-      gameOverLogo.classList.add('show');
     } else {
+      gameOverLogo.classList.remove('show');
       setStatus(isPaused ? 'Paused' : 'Connected');
     }
 
     draw();
+    return;
   }
+}
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';
