@@ -488,8 +488,10 @@ function removePlayer(player) {
   }
 
   if (room.hostId === player.id) {
-    const newHost = room.players.values().next().value;
+  const newHost =
+    room.players.values().next().value;
 
+  if (newHost) {
     room.hostId = newHost.id;
 
     for (const other of room.players.values()) {
@@ -500,6 +502,7 @@ function removePlayer(player) {
       }
     }
   }
+}
 
   broadcastRoomState(room);
 }

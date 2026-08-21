@@ -278,12 +278,16 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'roomState') {
-    currentRoom = data.room;
-    isPaused = Boolean(data.paused);
+  currentRoom = data.room;
+  isPaused = Boolean(data.paused);
 
-    renderRoom(data);
-    return;
-  }
+  isHost = data.hostId === myId;
+
+  renderRoom(data);
+  updateRoomButtons();
+
+  return;
+}
 
   if (data.type === 'gameStart') {
     mode = 'online';
