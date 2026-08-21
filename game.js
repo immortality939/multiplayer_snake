@@ -338,14 +338,26 @@ function handleServerMessage(data) {
   if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
+
+    selectedLevel = data.level || selectedLevel;
+    obstacles = createLevelObstacles();
+
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
     updatePauseButton();
-    setStatus(isPaused ? 'Paused' : 'Connected');
+
+    const me = players[myId];
+
+    if (me && !me.alive) {
+      setStatus('Game Over');
+      gameOverLogo.classList.add('show');
+    } else {
+      setStatus(isPaused ? 'Paused' : 'Connected');
+    }
+
     draw();
   }
-}
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';

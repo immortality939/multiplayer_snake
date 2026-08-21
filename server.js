@@ -309,6 +309,7 @@ function startFoodTimers(room) {
 
     broadcastRoom(room, {
       type: 'state',
+      level: room.level,
       players: publicPlayers(room),
       food: room.food,
       paused: room.paused
@@ -327,6 +328,7 @@ function startFoodTimers(room) {
 
     broadcastRoom(room, {
       type: 'state',
+      level: room.level,
       players: publicPlayers(room),
       food: room.food,
       paused: room.paused
@@ -368,8 +370,7 @@ function createLevelObstacles(level) {
 
   if (
     level === 2 ||
-    level === 3 ||
-    level === 4
+    level === 3
   ) {
     for (let x = 18; x < WIDTH - 18; x++) {
       result.push({
@@ -405,8 +406,6 @@ function createLevelObstacles(level) {
     const verticalGapEnd =
       Math.floor(HEIGHT / 2) + 4;
 
-    result.length = 0;
-
     for (let x = 12; x < WIDTH - 12; x++) {
       if (
         x < horizontalGapStart ||
@@ -438,6 +437,51 @@ function createLevelObstacles(level) {
           x: middleX + 14,
           y
         });
+      }
+    }
+  }
+
+  if (level === 5) {
+    const rows = [
+      {
+        y: 15,
+        start: 12,
+        end: WIDTH - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 30,
+        start: 14,
+        end: WIDTH - 12,
+        openingSide: 'left'
+      },
+      {
+        y: 45,
+        start: 12,
+        end: WIDTH - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 60,
+        start: 14,
+        end: WIDTH - 12,
+        openingSide: 'left'
+      }
+    ];
+
+    for (const row of rows) {
+      for (let x = row.start; x <= row.end; x++) {
+        const hasOpening =
+          row.openingSide === 'left'
+            ? x < row.start + 8
+            : x > row.end - 8;
+
+        if (!hasOpening) {
+          result.push({
+            x,
+            y: row.y
+          });
+        }
       }
     }
   }
@@ -484,6 +528,7 @@ function movePlayer(room, player) {
       segment.x === head.x &&
       segment.y === head.y
     );
+
   const obstacles =
     createLevelObstacles(room.level);
 
@@ -491,6 +536,7 @@ function movePlayer(room, player) {
     block.x === head.x &&
     block.y === head.y
   );
+
   const hitsOther = Array.from(room.players.values())
     .filter((other) =>
       other.id !== player.id &&
@@ -561,6 +607,7 @@ function gameStep(room) {
 
   broadcastRoom(room, {
     type: 'state',
+    level: room.level,
     players: publicPlayers(room),
     food: room.food,
     paused: room.paused
@@ -815,6 +862,7 @@ wss.on('connection', (ws) => {
 
         broadcastRoom(room, {
           type: 'state',
+          level: room.level,
           players: publicPlayers(room),
           food: room.food,
           paused: room.paused
