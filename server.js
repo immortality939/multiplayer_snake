@@ -359,6 +359,131 @@ function startRoom(room) {
   });
 }
 
+function createLevelObstacles(level) {
+  const result = [];
+  const middleY = Math.floor(HEIGHT / 2);
+
+  if (
+    level === 2 ||
+    level === 3
+  ) {
+    for (let x = 18; x < WIDTH - 18; x++) {
+      result.push({
+        x,
+        y: middleY
+      });
+    }
+  }
+
+  if (level === 3) {
+    const middleX = Math.floor(WIDTH / 2);
+
+    for (let y = 10; y < HEIGHT - 10; y++) {
+      result.push({
+        x: middleX,
+        y
+      });
+    }
+  }
+
+  if (level === 4) {
+    const middleX = Math.floor(WIDTH / 2);
+
+    const horizontalGapStart =
+      Math.floor(WIDTH / 2) - 4;
+
+    const horizontalGapEnd =
+      Math.floor(WIDTH / 2) + 4;
+
+    const verticalGapStart =
+      Math.floor(HEIGHT / 2) - 4;
+
+    const verticalGapEnd =
+      Math.floor(HEIGHT / 2) + 4;
+
+    for (let x = 12; x < WIDTH - 12; x++) {
+      if (
+        x < horizontalGapStart ||
+        x > horizontalGapEnd
+      ) {
+        result.push({
+          x,
+          y: middleY - 10
+        });
+
+        result.push({
+          x,
+          y: middleY + 10
+        });
+      }
+    }
+
+    for (let y = 12; y < HEIGHT - 12; y++) {
+      if (
+        y < verticalGapStart ||
+        y > verticalGapEnd
+      ) {
+        result.push({
+          x: middleX - 14,
+          y
+        });
+
+        result.push({
+          x: middleX + 14,
+          y
+        });
+      }
+    }
+  }
+
+  if (level === 5) {
+    const rows = [
+      {
+        y: 15,
+        start: 12,
+        end: WIDTH - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 30,
+        start: 14,
+        end: WIDTH - 12,
+        openingSide: 'left'
+      },
+      {
+        y: 45,
+        start: 12,
+        end: WIDTH - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 60,
+        start: 14,
+        end: WIDTH - 12,
+        openingSide: 'left'
+      }
+    ];
+
+    for (const row of rows) {
+      for (let x = row.start; x <= row.end; x++) {
+        const hasOpening =
+          row.openingSide === 'left'
+            ? x < row.start + 8
+            : x > row.end - 8;
+
+        if (!hasOpening) {
+          result.push({
+            x,
+            y: row.y
+          });
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 function movePlayer(room, player) {
   if (!player.alive) {
     return;
@@ -393,6 +518,14 @@ function movePlayer(room, player) {
     head.y < 0 ||
     head.y >= HEIGHT;
 
+  const levelObstacles =
+    createLevelObstacles(room.level || 1);
+
+  const hitsObstacle = levelObstacles.some((block) =>
+    block.x === head.x &&
+    block.y === head.y
+  );
+
   const hitsSelf = player.snake
     .slice(1)
     .some((segment) =>
@@ -414,6 +547,7 @@ function movePlayer(room, player) {
 
   if (
     outside ||
+    hitsObstacle ||
     hitsSelf ||
     hitsOther
   ) {
