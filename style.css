@@ -170,13 +170,52 @@ button:disabled {
   box-shadow: 0 4px 0 #1e293b;
 }
 
-#roomMessage,
-#roomStatus {
-  min-height: 22px;
-  margin-top: 16px;
-  color: #fde68a;
-  text-align: center;
-  font-weight: 700;
+.available-rooms {
+  max-height: 220px;
+  margin-top: 14px;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow:
+    inset 0 0 10px rgba(14, 165, 233, 0.25);
+  scrollbar-color: #38bdf8 #0f172a;
+  scrollbar-width: thin;
+}
+
+.available-rooms:empty {
+  display: none;
+}
+
+.available-room {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 11px 12px;
+  border: 1px solid #64748b;
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(30, 64, 175, 0.85);
+  text-align: left;
+  box-shadow: none;
+}
+
+.available-room:last-child {
+  margin-bottom: 0;
+}
+
+.available-room:hover {
+  border-color: #bae6fd;
+  background: #2563eb;
+}
+
+.available-room.selected {
+  border-color: #fde047;
+  background: #15803d;
+  box-shadow:
+    0 0 10px rgba(250, 204, 21, 0.75);
 }
 
 .room-panel {
