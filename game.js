@@ -13,6 +13,8 @@ const level3Btn = document.getElementById('level3Btn');
 const level4Btn = document.getElementById('level4Btn');
 const level5Btn =
   document.getElementById('level5Btn');
+const level6Btn =
+  document.getElementById('level6Btn');
 const backFromLevelBtn =
   document.getElementById('backFromLevelBtn');
 
@@ -343,6 +345,11 @@ function handleServerMessage(data) {
 
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
+if (data.level) {
+  multiplayerLevel = data.level;
+  selectedLevel = data.level;
+  obstacles = createLevelObstacles(multiplayerLevel);
+}
     draw();
   }
 }
@@ -481,8 +488,11 @@ function updateRoomLevelButtons() {
   });
 
   roomLevelStatus.textContent =
-    `Level ${multiplayerLevel} selected` +
-    (isHost ? '' : ' by host');
+  multiplayerLevel === 6
+    ? `Level 6 - BOSS SURVIVAL selected` +
+      (isHost ? '' : ' by host')
+    : `Level ${multiplayerLevel} selected` +
+      (isHost ? '' : ' by host');
 }
 
 function randomFood(type = 'red') {
@@ -1136,6 +1146,9 @@ level4Btn.addEventListener('click', () => {
 level5Btn.addEventListener('click', () => {
   startSelectedLevel(5);
 });
+level6Btn.addEventListener('click', () => {
+  startSelectedLevel(6);
+});
 backFromLevelBtn.addEventListener('click', () => {
   showScreen(mainMenu);
   mode = 'menu';
@@ -1222,7 +1235,7 @@ function resetLocalGame() {
   localGameOverShown = false;
   isPaused = false;
   enemies = [];
-  obstacles = createLevelObstacles();
+  obstacles = createLevelObstacles(multiplayerLevel);
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -1236,69 +1249,40 @@ function resetLocalGame() {
   setStatus('Offline');
   draw();
 }
-function createLevelObstacles() {
-  if (selectedLevel === 1) {
-    return [];
-  }
-
+function createLevelObstacles(level = selectedLevel) {
   const result = [];
+  const middleX = Math.floor(gridWidth / 2);
   const middleY = Math.floor(gridHeight / 2);
 
-  if (
-    selectedLevel === 2 ||
-    selectedLevel === 3 ||
-    selectedLevel === 4
-  ) {
+  if (level === 1) {
+    return result;
+  }
+
+  if (level === 2 || level === 3) {
     for (let x = 18; x < gridWidth - 18; x++) {
-      result.push({
-        x,
-        y: middleY
-      });
+      result.push({ x, y: middleY });
     }
   }
 
-  if (selectedLevel === 3) {
-    const middleX = Math.floor(gridWidth / 2);
-
+  if (level === 3) {
     for (let y = 10; y < gridHeight - 10; y++) {
-      result.push({
-        x: middleX,
-        y
-      });
+      result.push({ x: middleX, y });
     }
   }
 
-  if (selectedLevel === 4) {
-    const middleX = Math.floor(gridWidth / 2);
-
-    const horizontalGapStart =
-      Math.floor(gridWidth / 2) - 4;
-
-    const horizontalGapEnd =
-      Math.floor(gridWidth / 2) + 4;
-
-    const verticalGapStart =
-      Math.floor(gridHeight / 2) - 4;
-
-    const verticalGapEnd =
-      Math.floor(gridHeight / 2) + 4;
-
-    result.length = 0;
+  if (level === 4) {
+    const horizontalGapStart = middleX - 4;
+    const horizontalGapEnd = middleX + 4;
+    const verticalGapStart = middleY - 4;
+    const verticalGapEnd = middleY + 4;
 
     for (let x = 12; x < gridWidth - 12; x++) {
       if (
         x < horizontalGapStart ||
         x > horizontalGapEnd
       ) {
-        result.push({
-          x,
-          y: middleY - 10
-        });
-
-        result.push({
-          x,
-          y: middleY + 10
-        });
+        result.push({ x, y: middleY - 10 });
+        result.push({ x, y: middleY + 10 });
       }
     }
 
@@ -1307,62 +1291,119 @@ function createLevelObstacles() {
         y < verticalGapStart ||
         y > verticalGapEnd
       ) {
-        result.push({
-          x: middleX - 14,
-          y
-        });
-
-        result.push({
-          x: middleX + 14,
-          y
-        });
+        result.push({ x: middleX - 14, y });
+        result.push({ x: middleX + 14, y });
       }
     }
   }
-  if (selectedLevel === 5) {
+
+  if (level === 5) {
     const rows = [
-      {
-        y: 15,
-        start: 12,
-        end: gridWidth - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 30,
-        start: 14,
-        end: gridWidth - 12,
-        openingSide: 'left'
-      },
-      {
-        y: 45,
-        start: 12,
-        end: gridWidth - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 60,
-        start: 14,
-        end: gridWidth - 12,
-        openingSide: 'left'
-      }
+      { y: 15, start: 12, end: gridWidth - 14, side: 'right' },
+      { y: 30, start: 14, end: gridWidth - 12, side: 'left' },
+      { y: 45, start: 12, end: gridWidth - 14, side: 'right' },
+      { y: 60, start: 14, end: gridWidth - 12, side: 'left' }
     ];
 
     for (const row of rows) {
       for (let x = row.start; x <= row.end; x++) {
-        const hasOpening =
-          row.openingSide === 'left'
+        const opening =
+          row.side === 'left'
             ? x < row.start + 8
             : x > row.end - 8;
 
-        if (!hasOpening) {
-          result.push({
-            x,
-            y: row.y
-          });
+        if (!opening) {
+          result.push({ x, y: row.y });
         }
       }
     }
   }
+
+  if (level === 6) {
+    const addH = (y, start, end, gaps = []) => {
+      for (let x = start; x <= end; x++) {
+        const blocked = gaps.some((gap) =>
+          x >= gap.start &&
+          x <= gap.end
+        );
+
+        if (!blocked) {
+          result.push({ x, y });
+        }
+      }
+    };
+
+    const addV = (x, start, end, gaps = []) => {
+      for (let y = start; y <= end; y++) {
+        const blocked = gaps.some((gap) =>
+          y >= gap.start &&
+          y <= gap.end
+        );
+
+        if (!blocked) {
+          result.push({ x, y });
+        }
+      }
+    };
+
+    // Outer four corner structures
+    addV(8, 8, 25);
+    addV(8, 55, 72);
+    addV(gridWidth - 9, 8, 25);
+    addV(gridWidth - 9, 55, 72);
+
+    addH(8, 8, 25);
+    addH(8, gridWidth - 26, gridWidth - 9);
+    addH(gridHeight - 9, 8, 25);
+    addH(gridHeight - 9, gridWidth - 26, gridWidth - 9);
+
+    // Inner corner structures
+    addH(18, 15, 25);
+    addV(15, 18, 25);
+
+    addH(18, gridWidth - 26, gridWidth - 16);
+    addV(gridWidth - 16, 18, 25);
+
+    addH(gridHeight - 19, 15, 25);
+    addV(15, gridHeight - 26, gridHeight - 19);
+
+    addH(gridHeight - 19, gridWidth - 26, gridWidth - 16);
+    addV(gridWidth - 16, gridHeight - 26, gridHeight - 19);
+
+    // Central boss arena
+    addH(
+      middleY - 8,
+      middleX - 10,
+      middleX + 10,
+      [{ start: middleX - 2, end: middleX + 2 }]
+    );
+
+    addH(
+      middleY + 8,
+      middleX - 10,
+      middleX + 10,
+      [{ start: middleX - 2, end: middleX + 2 }]
+    );
+
+    addV(
+      middleX - 10,
+      middleY - 8,
+      middleY + 8,
+      [{ start: middleY - 2, end: middleY + 2 }]
+    );
+
+    addV(
+      middleX + 10,
+      middleY - 8,
+      middleY + 8,
+      [{ start: middleY - 2, end: middleY + 2 }]
+    );
+
+    // Central cross
+    addH(middleY, middleX - 5, middleX + 5);
+    addV(middleX, middleY - 5, middleY + 5);
+  }
+
   return result;
 }
 function showOfflineGameOver() {

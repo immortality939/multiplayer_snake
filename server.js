@@ -782,7 +782,7 @@ wss.on('connection', (ws) => {
 
         const level = Number(data.level);
 
-        if (![1, 2, 3, 4, 5].includes(level)) {
+        if (![1, 2, 3, 4, 5, 6].includes(level)) {
           return;
         }
 
@@ -923,3 +923,37 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`Snake server listening on port ${PORT}`);
 });
+.room-level-button[data-level="6"] {
+  border-color: #ef4444;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    #991b1b,
+    #450a0a
+  );
+  box-shadow:
+    0 0 10px rgba(239, 68, 68, 0.65);
+}
+
+.room-level-button[data-level="6"]:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #dc2626,
+    #7f1d1d
+  );
+}
+
+.room-level-button[data-level="6"].selected {
+  border-color: #facc15;
+  background: linear-gradient(
+    135deg,
+    #dc2626,
+    #7f1d1d
+  );
+  box-shadow:
+    0 0 16px rgba(250, 204, 21, 0.95);
+}
+
+.room-level-button[data-level="6"] small {
+  color: #fecaca;
+}
