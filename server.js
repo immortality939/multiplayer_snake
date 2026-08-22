@@ -311,7 +311,8 @@ function startFoodTimers(room) {
       type: 'state',
       players: publicPlayers(room),
       food: room.food,
-      paused: room.paused
+      paused: room.paused,
+level: room.level
     });
   }, 8000);
 
@@ -329,7 +330,8 @@ function startFoodTimers(room) {
       type: 'state',
       players: publicPlayers(room),
       food: room.food,
-      paused: room.paused
+      paused: room.paused,
+level: room.level
     });
   }, 16000);
 }
@@ -493,7 +495,7 @@ function createLevelObstacles(level) {
     vertical(16, 47, 55, 47, 51);
 
     vertical(56, 25, 33, 25, 29);
-    vertical(56, 47, 55, 51, 55);
+    vertical(56, 47, 55, 47, 55);
   }
 
   return result;
@@ -863,7 +865,8 @@ wss.on('connection', (ws) => {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+level: room.level
         });
 
         return;
@@ -888,7 +891,8 @@ wss.on('connection', (ws) => {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+level: room.level
         });
 
         return;

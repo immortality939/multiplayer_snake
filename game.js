@@ -342,6 +342,15 @@ function handleServerMessage(data) {
   }
 
     if (data.type === 'state') {
+      mode = 'online';
+  isPaused = Boolean(data.paused);
+
+  if (data.level) {
+    multiplayerLevel = data.level;
+    selectedLevel = data.level;
+  }
+
+  obstacles = createLevelObstacles(multiplayerLevel);
     mode = 'online';
     isPaused = Boolean(data.paused);
 
