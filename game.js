@@ -340,14 +340,15 @@ function handleServerMessage(data) {
   if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
 
     if (data.level) {
       multiplayerLevel = data.level;
       selectedLevel = data.level;
       obstacles = createLevelObstacles(multiplayerLevel);
     }
+
+    players = convertPlayers(data.players);
+    food = normalizeFood(data.food);
 
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
