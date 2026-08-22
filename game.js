@@ -1329,9 +1329,11 @@ function createLevelObstacles(level = selectedLevel) {
     }
   }
 
-    if (level === 6) {
+      if (level === 6) {
     const wall = (x, y) => {
-      result.push({ x, y });
+      if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
+        result.push({ x, y });
+      }
     };
 
     const horizontal = (y, x1, x2, gap1, gap2) => {
@@ -1350,85 +1352,37 @@ function createLevelObstacles(level = selectedLevel) {
       }
     };
 
-    const centerX = 36;
-    const centerY = 40;
-
-    /*
-      TOP-LEFT BOX
-      Opening on the bottom-right side.
-    */
+    // TOP-LEFT BOX
     horizontal(8, 8, 22, 18, 22);
     vertical(8, 8, 24, 18, 24);
     horizontal(24, 8, 22, 8, 12);
     vertical(22, 8, 24, 8, 12);
 
-    /*
-      TOP-RIGHT BOX
-      Opening on the bottom-left side.
-    */
+    // TOP-RIGHT BOX
     horizontal(8, 49, 63, 49, 53);
     vertical(63, 8, 24, 18, 24);
     horizontal(24, 49, 63, 59, 63);
     vertical(49, 8, 24, 8, 12);
 
-    /*
-      BOTTOM-LEFT BOX
-      Opening on the top-right side.
-    */
-    horizontal(72, 8, 22, 18, 22);
+    // BOTTOM-LEFT BOX
+    horizontal(56, 8, 22, 18, 22);
     vertical(8, 56, 72, 56, 60);
-    horizontal(56, 8, 22, 8, 12);
+    horizontal(72, 8, 22, 8, 12);
     vertical(22, 56, 72, 60, 72);
 
-    /*
-      BOTTOM-RIGHT BOX
-      Opening on the top-left side.
-    */
-    horizontal(72, 49, 63, 49, 53);
+    // BOTTOM-RIGHT BOX
+    horizontal(56, 49, 63, 49, 53);
     vertical(63, 56, 72, 56, 72);
-    horizontal(56, 49, 63, 59, 63);
+    horizontal(72, 49, 63, 59, 63);
     vertical(49, 56, 72, 60, 72);
 
-    /*
-      CENTRAL BOX
-      Open passage on the left and right.
-    */
-    horizontal(
-      32,
-      26,
-      46,
-      34,
-      38
-    );
+    // CENTRAL BOX
+    horizontal(32, 26, 46, 34, 38);
+    horizontal(48, 26, 46, 34, 38);
+    vertical(26, 32, 48, 38, 42);
+    vertical(46, 32, 48, 38, 42);
 
-    horizontal(
-      48,
-      26,
-      46,
-      34,
-      38
-    );
-
-    vertical(
-      26,
-      32,
-      48,
-      38,
-      42
-    );
-
-    vertical(
-      46,
-      32,
-      48,
-      38,
-      42
-    );
-
-    /*
-      EXTRA PUZZLE WALLS
-      These create paths between the corner boxes and center.
-    */
+    // EXTRA PUZZLE WALLS
     horizontal(16, 25, 33, 29, 33);
     horizontal(16, 39, 47, 39, 43);
 
@@ -1440,6 +1394,8 @@ function createLevelObstacles(level = selectedLevel) {
 
     vertical(56, 25, 33, 25, 29);
     vertical(56, 47, 55, 51, 55);
+  }
+
   if (level === 6) {
     console.log('Client Level 6 obstacles:', result.length);
   }
