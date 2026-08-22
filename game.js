@@ -318,7 +318,7 @@ function handleServerMessage(data) {
 
     multiplayerLevel = data.level || 1;
     selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles();
+    obstacles = createLevelObstacles(multiplayerLevel);
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
@@ -1235,7 +1235,7 @@ function resetLocalGame() {
   localGameOverShown = false;
   isPaused = false;
   enemies = [];
-  obstacles = createLevelObstacles(multiplayerLevel);
+  obstacles = createLevelObstacles(selectedLevel);
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -1319,89 +1319,117 @@ function createLevelObstacles(level = selectedLevel) {
     }
   }
 
-  if (level === 6) {
-    const addH = (y, start, end, gaps = []) => {
-      for (let x = start; x <= end; x++) {
-        const blocked = gaps.some((gap) =>
-          x >= gap.start &&
-          x <= gap.end
-        );
+    if (level === 6) {
+    const wall = (x, y) => {
+      result.push({ x, y });
+    };
 
-        if (!blocked) {
-          result.push({ x, y });
+    const horizontal = (y, x1, x2, gap1, gap2) => {
+      for (let x = x1; x <= x2; x++) {
+        if (x < gap1 || x > gap2) {
+          wall(x, y);
         }
       }
     };
 
-    const addV = (x, start, end, gaps = []) => {
-      for (let y = start; y <= end; y++) {
-        const blocked = gaps.some((gap) =>
-          y >= gap.start &&
-          y <= gap.end
-        );
-
-        if (!blocked) {
-          result.push({ x, y });
+    const vertical = (x, y1, y2, gap1, gap2) => {
+      for (let y = y1; y <= y2; y++) {
+        if (y < gap1 || y > gap2) {
+          wall(x, y);
         }
       }
     };
 
-    // Outer four corner structures
-    addV(8, 8, 25);
-    addV(8, 55, 72);
-    addV(gridWidth - 9, 8, 25);
-    addV(gridWidth - 9, 55, 72);
+    const centerX = 36;
+    const centerY = 40;
 
-    addH(8, 8, 25);
-    addH(8, gridWidth - 26, gridWidth - 9);
-    addH(gridHeight - 9, 8, 25);
-    addH(gridHeight - 9, gridWidth - 26, gridWidth - 9);
+    /*
+      TOP-LEFT BOX
+      Opening on the bottom-right side.
+    */
+    horizontal(8, 8, 22, 18, 22);
+    vertical(8, 8, 24, 18, 24);
+    horizontal(24, 8, 22, 8, 12);
+    vertical(22, 8, 24, 8, 12);
 
-    // Inner corner structures
-    addH(18, 15, 25);
-    addV(15, 18, 25);
+    /*
+      TOP-RIGHT BOX
+      Opening on the bottom-left side.
+    */
+    horizontal(8, 49, 63, 49, 53);
+    vertical(63, 8, 24, 18, 24);
+    horizontal(24, 49, 63, 59, 63);
+    vertical(49, 8, 24, 8, 12);
 
-    addH(18, gridWidth - 26, gridWidth - 16);
-    addV(gridWidth - 16, 18, 25);
+    /*
+      BOTTOM-LEFT BOX
+      Opening on the top-right side.
+    */
+    horizontal(72, 8, 22, 18, 22);
+    vertical(8, 56, 72, 56, 60);
+    horizontal(56, 8, 22, 8, 12);
+    vertical(22, 56, 72, 60, 72);
 
-    addH(gridHeight - 19, 15, 25);
-    addV(15, gridHeight - 26, gridHeight - 19);
+    /*
+      BOTTOM-RIGHT BOX
+      Opening on the top-left side.
+    */
+    horizontal(72, 49, 63, 49, 53);
+    vertical(63, 56, 72, 56, 72);
+    horizontal(56, 49, 63, 59, 63);
+    vertical(49, 56, 72, 60, 72);
 
-    addH(gridHeight - 19, gridWidth - 26, gridWidth - 16);
-    addV(gridWidth - 16, gridHeight - 26, gridHeight - 19);
-
-    // Central boss arena
-    addH(
-      middleY - 8,
-      middleX - 10,
-      middleX + 10,
-      [{ start: middleX - 2, end: middleX + 2 }]
+    /*
+      CENTRAL BOX
+      Open passage on the left and right.
+    */
+    horizontal(
+      32,
+      26,
+      46,
+      34,
+      38
     );
 
-    addH(
-      middleY + 8,
-      middleX - 10,
-      middleX + 10,
-      [{ start: middleX - 2, end: middleX + 2 }]
+    horizontal(
+      48,
+      26,
+      46,
+      34,
+      38
     );
 
-    addV(
-      middleX - 10,
-      middleY - 8,
-      middleY + 8,
-      [{ start: middleY - 2, end: middleY + 2 }]
+    vertical(
+      26,
+      32,
+      48,
+      38,
+      42
     );
 
-    addV(
-      middleX + 10,
-      middleY - 8,
-      middleY + 8,
-      [{ start: middleY - 2, end: middleY + 2 }]
+    vertical(
+      46,
+      32,
+      48,
+      38,
+      42
     );
 
-    // Central cross
-    addH(middleY, middleX - 5, middleX + 5);
-    addV(middleX, middleY - 5, middleY + 5);
+    /*
+      EXTRA PUZZLE WALLS
+      These create paths between the corner boxes and center.
+    */
+    horizontal(16, 25, 33, 29, 33);
+    horizontal(16, 39, 47, 39, 43);
+
+    horizontal(64, 25, 33, 25, 29);
+    horizontal(64, 39, 47, 43, 47);
+
+    vertical(16, 25, 33, 29, 33);
+    vertical(16, 47, 55, 47, 51);
+
+    vertical(56, 25, 33, 25, 29);
+    vertical(56, 47, 55, 51, 55);
   }
 
   return result;

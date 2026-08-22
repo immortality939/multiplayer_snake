@@ -362,59 +362,37 @@ function startRoom(room) {
 function createLevelObstacles(level) {
   const result = [];
   const middleY = Math.floor(HEIGHT / 2);
+  const middleX = Math.floor(WIDTH / 2);
 
-  if (
-    level === 2 ||
-    level === 3
-  ) {
+  if (level === 1) {
+    return result;
+  }
+
+  if (level === 2 || level === 3) {
     for (let x = 18; x < WIDTH - 18; x++) {
-      result.push({
-        x,
-        y: middleY
-      });
+      result.push({ x, y: middleY });
     }
   }
 
   if (level === 3) {
-    const middleX = Math.floor(WIDTH / 2);
-
     for (let y = 10; y < HEIGHT - 10; y++) {
-      result.push({
-        x: middleX,
-        y
-      });
+      result.push({ x: middleX, y });
     }
   }
 
   if (level === 4) {
-    const middleX = Math.floor(WIDTH / 2);
-
-    const horizontalGapStart =
-      Math.floor(WIDTH / 2) - 4;
-
-    const horizontalGapEnd =
-      Math.floor(WIDTH / 2) + 4;
-
-    const verticalGapStart =
-      Math.floor(HEIGHT / 2) - 4;
-
-    const verticalGapEnd =
-      Math.floor(HEIGHT / 2) + 4;
+    const horizontalGapStart = middleX - 4;
+    const horizontalGapEnd = middleX + 4;
+    const verticalGapStart = middleY - 4;
+    const verticalGapEnd = middleY + 4;
 
     for (let x = 12; x < WIDTH - 12; x++) {
       if (
         x < horizontalGapStart ||
         x > horizontalGapEnd
       ) {
-        result.push({
-          x,
-          y: middleY - 10
-        });
-
-        result.push({
-          x,
-          y: middleY + 10
-        });
+        result.push({ x, y: middleY - 10 });
+        result.push({ x, y: middleY + 10 });
       }
     }
 
@@ -423,62 +401,145 @@ function createLevelObstacles(level) {
         y < verticalGapStart ||
         y > verticalGapEnd
       ) {
-        result.push({
-          x: middleX - 14,
-          y
-        });
-
-        result.push({
-          x: middleX + 14,
-          y
-        });
+        result.push({ x: middleX - 14, y });
+        result.push({ x: middleX + 14, y });
       }
     }
   }
 
   if (level === 5) {
     const rows = [
-      {
-        y: 15,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 30,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      },
-      {
-        y: 45,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 60,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      }
+      { y: 15, start: 12, end: WIDTH - 14, side: 'right' },
+      { y: 30, start: 14, end: WIDTH - 12, side: 'left' },
+      { y: 45, start: 12, end: WIDTH - 14, side: 'right' },
+      { y: 60, start: 14, end: WIDTH - 12, side: 'left' }
     ];
 
     for (const row of rows) {
       for (let x = row.start; x <= row.end; x++) {
-        const hasOpening =
-          row.openingSide === 'left'
+        const opening =
+          row.side === 'left'
             ? x < row.start + 8
             : x > row.end - 8;
 
-        if (!hasOpening) {
-          result.push({
-            x,
-            y: row.y
-          });
+        if (!opening) {
+          result.push({ x, y: row.y });
         }
       }
     }
+  }
+
+  if (level === 6) {
+    const wall = (x, y) => {
+      result.push({ x, y });
+    };
+
+    const horizontal = (y, x1, x2, gap1, gap2) => {
+      for (let x = x1; x <= x2; x++) {
+        if (x < gap1 || x > gap2) {
+          wall(x, y);
+        }
+      }
+    };
+
+    const vertical = (x, y1, y2, gap1, gap2) => {
+      for (let y = y1; y <= y2; y++) {
+        if (y < gap1 || y > gap2) {
+          wall(x, y);
+        }
+      }
+    };
+
+    const centerX = Math.floor(WIDTH / 2);
+    const centerY = Math.floor(HEIGHT / 2);
+
+    /*
+      TOP-LEFT BOX
+      Opening on the bottom-right side.
+    */
+    horizontal(8, 8, 22, 18, 22);
+    vertical(8, 8, 24, 18, 24);
+    horizontal(24, 8, 22, 8, 12);
+    vertical(22, 8, 24, 8, 12);
+
+    /*
+      TOP-RIGHT BOX
+      Opening on the bottom-left side.
+    */
+    horizontal(8, 49, 63, 49, 53);
+    vertical(63, 8, 24, 18, 24);
+    horizontal(24, 49, 63, 59, 63);
+    vertical(49, 8, 24, 8, 12);
+
+    /*
+      BOTTOM-LEFT BOX
+      Opening on the top-right side.
+    */
+    horizontal(72, 8, 22, 18, 22);
+    vertical(8, 56, 72, 56, 60);
+    horizontal(56, 8, 22, 8, 12);
+    vertical(22, 56, 72, 60, 72);
+
+    /*
+      BOTTOM-RIGHT BOX
+      Opening on the top-left side.
+    */
+    horizontal(72, 49, 63, 49, 53);
+    vertical(63, 56, 72, 56, 72);
+    horizontal(56, 49, 63, 59, 63);
+    vertical(49, 56, 72, 60, 72);
+
+    /*
+      CENTRAL BOX
+      Open passage on the left and right.
+    */
+    horizontal(
+      32,
+      26,
+      46,
+      34,
+      38
+    );
+
+    horizontal(
+      48,
+      26,
+      46,
+      34,
+      38
+    );
+
+    vertical(
+      26,
+      32,
+      48,
+      38,
+      42
+    );
+
+    vertical(
+      46,
+      32,
+      48,
+      38,
+      42
+    );
+
+    /*
+      EXTRA PUZZLE WALLS
+      These create paths between the corner boxes and center.
+    */
+    horizontal(16, 25, 33, 29, 33);
+    horizontal(16, 39, 47, 39, 43);
+
+    horizontal(64, 25, 33, 25, 29);
+    horizontal(64, 39, 47, 43, 47);
+
+    vertical(16, 25, 33, 29, 33);
+    vertical(16, 47, 55, 47, 51);
+
+    vertical(56, 25, 33, 25, 29);
+    vertical(56, 47, 55, 51, 55);
   }
 
   return result;
