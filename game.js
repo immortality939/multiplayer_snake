@@ -1,5 +1,4 @@
 const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
-
 const mainMenu = document.getElementById('mainMenu');
 const levelScreen = document.getElementById('levelScreen');
 const multiplayerMenu = document.getElementById('multiplayerMenu');
