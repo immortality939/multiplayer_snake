@@ -1329,7 +1329,7 @@ function createLevelObstacles(level = selectedLevel) {
     }
   }
 
-      if (level === 6) {
+  if (level === 6) {
     const wall = (x, y) => {
       if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
         result.push({ x, y });
