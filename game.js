@@ -343,13 +343,14 @@ function handleServerMessage(data) {
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
+    if (data.level) {
+      multiplayerLevel = data.level;
+      selectedLevel = data.level;
+      obstacles = createLevelObstacles(multiplayerLevel);
+    }
+
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
-if (data.level) {
-  multiplayerLevel = data.level;
-  selectedLevel = data.level;
-  obstacles = createLevelObstacles(multiplayerLevel);
-}
     draw();
   }
 }
