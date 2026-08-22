@@ -90,7 +90,7 @@ let size = 5;
 const drawSize = 5;
 
 let localSnake = [
-  { x: 10, y: 10 },
+  { x: 10, y: 15 },
   { x: 9, y: 10 },
   { x: 8, y: 10 }
 ];
