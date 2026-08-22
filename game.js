@@ -13,8 +13,8 @@ const level3Btn = document.getElementById('level3Btn');
 const level4Btn = document.getElementById('level4Btn');
 const level5Btn =
   document.getElementById('level5Btn');
-const level6Btn = document.getElementById('level6Btn');
-const level6Btn = document.getElementById('level6Btn');
+const level6Btn =
+  document.getElementById('level6Btn');
 const backFromLevelBtn =
   document.getElementById('backFromLevelBtn');
 
