@@ -13,8 +13,8 @@ const level3Btn = document.getElementById('level3Btn');
 const level4Btn = document.getElementById('level4Btn');
 const level5Btn =
   document.getElementById('level5Btn');
-const level6Btn =
-  document.getElementById('level6Btn');
+const level6Btn = document.getElementById('level6Btn');
+const level6Btn = document.getElementById('level6Btn');
 const backFromLevelBtn =
   document.getElementById('backFromLevelBtn');
 
@@ -316,20 +316,16 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
 
-    gridWidth = data.width || gridWidth;
-    gridHeight = data.height || gridHeight;
-    size = data.size || size;
-
     multiplayerLevel = data.level || 1;
     selectedLevel = multiplayerLevel;
-
-    // Always rebuild obstacles from server level
-    obstacles = createLevelObstacles(multiplayerLevel);
-
-    console.log('gameStart level:', multiplayerLevel, 'obstacles:', obstacles.length);
+    obstacles = createLevelObstacles();
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
+
+    gridWidth = data.width || gridWidth;
+    gridHeight = data.height || gridHeight;
+    size = data.size || size;
 
     stopOfflineAppleTimers();
     stopIntroMusic();
@@ -341,29 +337,9 @@ function handleServerMessage(data) {
     return;
   }
 
-    if (data.type === 'state') {
-      mode = 'online';
-  isPaused = Boolean(data.paused);
-
-  if (data.level) {
-    multiplayerLevel = data.level;
-    selectedLevel = data.level;
-  }
-
-  obstacles = createLevelObstacles(multiplayerLevel);
+  if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
-
-    if (data.level) {
-      multiplayerLevel = data.level;
-      selectedLevel = data.level;
-    }
-
-    obstacles = createLevelObstacles(multiplayerLevel);
-
-    // Debug: confirm level in browser console
-    console.log('Multiplayer level:', multiplayerLevel, 'obstacles:', obstacles.length);
-
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
 
@@ -507,11 +483,8 @@ function updateRoomLevelButtons() {
   });
 
   roomLevelStatus.textContent =
-  multiplayerLevel === 6
-    ? `Level 6 - BOSS SURVIVAL selected` +
-      (isHost ? '' : ' by host')
-    : `Level ${multiplayerLevel} selected` +
-      (isHost ? '' : ' by host');
+    `Level ${multiplayerLevel} selected` +
+    (isHost ? '' : ' by host');
 }
 
 function randomFood(type = 'red') {
@@ -1168,6 +1141,9 @@ level5Btn.addEventListener('click', () => {
 level6Btn.addEventListener('click', () => {
   startSelectedLevel(6);
 });
+level6Btn.addEventListener('click', () => {
+  startSelectedLevel(6);
+});
 backFromLevelBtn.addEventListener('click', () => {
   showScreen(mainMenu);
   mode = 'menu';
@@ -1196,7 +1172,6 @@ startRoomBtn.addEventListener('click', () => {
   }
 });
 
-leaveRoomBtn.addEventListener('click', leaveRoom);
 leaveRoomBtn.addEventListener('click', leaveRoom);
 
 roomLevelButtons.forEach((button) => {
@@ -1254,7 +1229,7 @@ function resetLocalGame() {
   localGameOverShown = false;
   isPaused = false;
   enemies = [];
-  obstacles = createLevelObstacles(selectedLevel);
+  obstacles = createLevelObstacles();
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -1268,40 +1243,63 @@ function resetLocalGame() {
   setStatus('Offline');
   draw();
 }
-function createLevelObstacles(level = selectedLevel) {
+function createLevelObstacles() {
+  if (selectedLevel === 1) {
+    return [];
+  }
+
   const result = [];
-  const middleX = Math.floor(gridWidth / 2);
   const middleY = Math.floor(gridHeight / 2);
+  const middleX = Math.floor(gridWidth / 2);
 
-  if (level === 1) {
-    return result;
-  }
-
-  if (level === 2 || level === 3) {
+  if (
+    selectedLevel === 2 ||
+    selectedLevel === 3 ||
+    selectedLevel === 4
+  ) {
     for (let x = 18; x < gridWidth - 18; x++) {
-      result.push({ x, y: middleY });
+      result.push({
+        x,
+        y: middleY
+      });
     }
   }
 
-  if (level === 3) {
+  if (selectedLevel === 3) {
     for (let y = 10; y < gridHeight - 10; y++) {
-      result.push({ x: middleX, y });
+      result.push({
+        x: middleX,
+        y
+      });
     }
   }
 
-  if (level === 4) {
-    const horizontalGapStart = middleX - 4;
-    const horizontalGapEnd = middleX + 4;
-    const verticalGapStart = middleY - 4;
-    const verticalGapEnd = middleY + 4;
+  if (selectedLevel === 4) {
+    const horizontalGapStart =
+      Math.floor(gridWidth / 2) - 4;
+    const horizontalGapEnd =
+      Math.floor(gridWidth / 2) + 4;
+    const verticalGapStart =
+      Math.floor(gridHeight / 2) - 4;
+    const verticalGapEnd =
+      Math.floor(gridHeight / 2) + 4;
+
+    result.length = 0;
 
     for (let x = 12; x < gridWidth - 12; x++) {
       if (
         x < horizontalGapStart ||
         x > horizontalGapEnd
       ) {
-        result.push({ x, y: middleY - 10 });
-        result.push({ x, y: middleY + 10 });
+        result.push({
+          x,
+          y: middleY - 10
+        });
+
+        result.push({
+          x,
+          y: middleY + 10
+        });
       }
     }
 
@@ -1310,103 +1308,140 @@ function createLevelObstacles(level = selectedLevel) {
         y < verticalGapStart ||
         y > verticalGapEnd
       ) {
-        result.push({ x: middleX - 14, y });
-        result.push({ x: middleX + 14, y });
+        result.push({
+          x: middleX - 14,
+          y
+        });
+
+        result.push({
+          x: middleX + 14,
+          y
+        });
       }
     }
   }
 
-  if (level === 5) {
+  if (selectedLevel === 5) {
     const rows = [
-      { y: 15, start: 12, end: gridWidth - 14, side: 'right' },
-      { y: 30, start: 14, end: gridWidth - 12, side: 'left' },
-      { y: 45, start: 12, end: gridWidth - 14, side: 'right' },
-      { y: 60, start: 14, end: gridWidth - 12, side: 'left' }
+      {
+        y: 15,
+        start: 12,
+        end: gridWidth - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 30,
+        start: 14,
+        end: gridWidth - 12,
+        openingSide: 'left'
+      },
+      {
+        y: 45,
+        start: 12,
+        end: gridWidth - 14,
+        openingSide: 'right'
+      },
+      {
+        y: 60,
+        start: 14,
+        end: gridWidth - 12,
+        openingSide: 'left'
+      }
     ];
 
     for (const row of rows) {
       for (let x = row.start; x <= row.end; x++) {
-        const opening =
-          row.side === 'left'
+        const hasOpening =
+          row.openingSide === 'left'
             ? x < row.start + 8
             : x > row.end - 8;
 
-        if (!opening) {
-          result.push({ x, y: row.y });
+        if (!hasOpening) {
+          result.push({
+            x,
+            y: row.y
+          });
         }
       }
     }
   }
 
-  if (level === 6) {
-    const wall = (x, y) => {
-      if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight) {
-        result.push({ x, y });
-      }
-    };
-
-    const horizontal = (y, x1, x2, gap1, gap2) => {
+  if (selectedLevel === 6) {
+    const addBox = (x1, y1, x2, y2, openings = []) => {
       for (let x = x1; x <= x2; x++) {
-        if (x < gap1 || x > gap2) {
-          wall(x, y);
+        for (let y = y1; y <= y2; y++) {
+          const isEdge =
+            x === x1 ||
+            x === x2 ||
+            y === y1 ||
+            y === y2;
+
+          if (!isEdge) continue;
+
+          const openLeft =
+            openings.includes('left') &&
+            x === x1 &&
+            y >= y1 + 3 &&
+            y <= y2 - 3;
+
+          const openRight =
+            openings.includes('right') &&
+            x === x2 &&
+            y >= y1 + 3 &&
+            y <= y2 - 3;
+
+          const openTop =
+            openings.includes('top') &&
+            y === y1 &&
+            x >= x1 + 3 &&
+            x <= x2 - 3;
+
+          const openBottom =
+            openings.includes('bottom') &&
+            y === y2 &&
+            x >= x1 + 3 &&
+            x <= x2 - 3;
+
+          if (
+            openLeft ||
+            openRight ||
+            openTop ||
+            openBottom
+          ) {
+            continue;
+          }
+
+          result.push({ x, y });
         }
       }
     };
 
-    const vertical = (x, y1, y2, gap1, gap2) => {
-      for (let y = y1; y <= y2; y++) {
-        if (y < gap1 || y > gap2) {
-          wall(x, y);
-        }
+    const midX = Math.floor(gridWidth / 2);
+    const midY = Math.floor(gridHeight / 2);
+
+    addBox(18, 18, 31, 30, ['left', 'right']);
+    addBox(40, 18, 53, 30, ['left', 'right']);
+    addBox(18, 48, 31, 60, ['left', 'right']);
+    addBox(40, 48, 53, 60, ['left', 'right']);
+
+    addBox(0, 0, 12, 12, ['bottom', 'right']);
+    addBox(gridWidth - 13, 0, gridWidth - 1, 12, ['bottom', 'left']);
+    addBox(0, gridHeight - 13, 12, gridHeight - 1, ['top', 'right']);
+    addBox(gridWidth - 13, gridHeight - 13, gridWidth - 1, gridHeight - 1, ['top', 'left']);
+
+    for (let x = 24; x <= 47; x++) {
+      if (x < 33 || x > 38) {
+        result.push({ x, y: midY - 6 });
+        result.push({ x, y: midY + 6 });
       }
-    };
+    }
 
-    // TOP-LEFT BOX
-    horizontal(8, 8, 22, 18, 22);
-    vertical(8, 8, 24, 18, 24);
-    horizontal(24, 8, 22, 8, 12);
-    vertical(22, 8, 24, 8, 12);
-
-    // TOP-RIGHT BOX
-    horizontal(8, 49, 63, 49, 53);
-    vertical(63, 8, 24, 18, 24);
-    horizontal(24, 49, 63, 59, 63);
-    vertical(49, 8, 24, 8, 12);
-
-    // BOTTOM-LEFT BOX
-    horizontal(56, 8, 22, 18, 22);
-    vertical(8, 56, 72, 56, 60);
-    horizontal(72, 8, 22, 8, 12);
-    vertical(22, 56, 72, 60, 72);
-
-    // BOTTOM-RIGHT BOX
-    horizontal(56, 49, 63, 49, 53);
-    vertical(63, 56, 72, 56, 72);
-    horizontal(72, 49, 63, 59, 63);
-    vertical(49, 56, 72, 60, 72);
-
-    // CENTRAL BOX
-    horizontal(32, 26, 46, 34, 38);
-    horizontal(48, 26, 46, 34, 38);
-    vertical(26, 32, 48, 38, 42);
-    vertical(46, 32, 48, 38, 42);
-
-    // EXTRA PUZZLE WALLS
-    horizontal(16, 25, 33, 29, 33);
-    horizontal(16, 39, 47, 39, 43);
-
-    horizontal(64, 25, 33, 25, 29);
-    horizontal(64, 39, 47, 43, 47);
-
-    vertical(16, 25, 33, 29, 33);
-    vertical(16, 47, 55, 47, 51);
-
-    vertical(56, 25, 33, 25, 29);
-    vertical(56, 47, 55, 51, 55);
-  }
-
-  if (level === 6) {
-    console.log('Client Level 6 obstacles:', result.length);
+    for (let y = 24; y <= 55; y++) {
+      if (y < 34 || y > 45) {
+        result.push({ x: midX - 10, y });
+        result.push({ x: midX + 10, y });
+      }
+    }
   }
 
   return result;
