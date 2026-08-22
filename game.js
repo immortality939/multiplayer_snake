@@ -1440,6 +1440,8 @@ function createLevelObstacles(level = selectedLevel) {
 
     vertical(56, 25, 33, 25, 29);
     vertical(56, 47, 55, 51, 55);
+  if (level === 6) {
+    console.log('Client Level 6 obstacles:', result.length);
   }
 
   return result;
