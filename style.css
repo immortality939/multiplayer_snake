@@ -1,1048 +1,597 @@
-const express = require('express');
-const http = require('http');
-const path = require('path');
-const WebSocket = require('ws');
-
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-const PORT = process.env.PORT || 3000;
-
-app.use(express.static(__dirname));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-const WIDTH = 72;
-const HEIGHT = 80;
-const SIZE = 5;
-const TICK = 120;
-const MAX_PLAYERS = 4;
-
-const COLORS = [
-  '#ff4d4d',
-  '#4dd2ff',
-  '#7dff4d',
-  '#ffd24d'
-];
-
-let nextId = 1;
-const rooms = new Map();
-
-function cleanText(value, fallback) {
-  const text = String(value || '').trim();
-
-  if (!text) {
-    return fallback;
-  }
-
-  return text.slice(0, 18);
+* {
+  box-sizing: border-box;
 }
 
-function normalizeRoomName(value) {
-  return cleanText(value, 'Room').toLowerCase();
+html,
+body {
+  min-height: 100%;
 }
 
-function randomFood(type = 'red') {
-  return {
-    x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT),
-    type
-  };
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  color: #fff;
+  background-color: #07111f;
+  background-image: url("snakebite.png");
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
-function createSnake(playerId) {
-  const margin = 8;
-
-  const spawns = {
-    1: {
-      x: margin,
-      y: margin,
-      dir: 'right'
-    },
-
-    2: {
-      x: WIDTH - margin - 1,
-      y: margin,
-      dir: 'down'
-    },
-
-    3: {
-      x: WIDTH - margin - 1,
-      y: HEIGHT - margin - 1,
-      dir: 'left'
-    },
-
-    4: {
-      x: margin,
-      y: HEIGHT - margin - 1,
-      dir: 'up'
-    }
-  };
-
-  const spawn = spawns[((playerId - 1) % 4) + 1];
-
-  if (spawn.dir === 'left') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x + 1, y: spawn.y },
-      { x: spawn.x + 2, y: spawn.y }
-    ];
-  }
-
-  if (spawn.dir === 'right') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x - 1, y: spawn.y },
-      { x: spawn.x - 2, y: spawn.y }
-    ];
-  }
-
-  if (spawn.dir === 'down') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x, y: spawn.y - 1 },
-      { x: spawn.x, y: spawn.y - 2 }
-    ];
-  }
-
-  return [
-    { x: spawn.x, y: spawn.y },
-    { x: spawn.x, y: spawn.y + 1 },
-    { x: spawn.x, y: spawn.y + 2 }
-  ];
-}
-function getSpawnDirection(playerId) {
-  const directions = {
-    1: 'right',
-    2: 'down',
-    3: 'left',
-    4: 'up'
-  };
-
-  return directions[((playerId - 1) % 4) + 1];
-}
-function createPlayer(ws, name, host) {
-  const id = nextId++;
-
-  return {
-    id,
-    ws,
-    name,
-    host,
-    ready: host,
-    color: COLORS[(id - 1) % COLORS.length],
-dir: getSpawnDirection(id),
-nextDir: getSpawnDirection(id),
-alive: true,
-score: 0,
-grow: 0,
-snake: createSnake(id),
-roomName: ''
-  };
+button,
+input {
+  font: inherit;
 }
 
-function createRoom(roomName, player) {
-  const room = {
-    name: roomName,
-    hostId: player.id,
-    started: false,
-    paused: false,
-    level: 1,
-    food: [randomFood('red')],
-    blueTimer: null,
-    greenTimer: null,
-    players: new Map()
-  };
-
-  room.players.set(player.id, player);
-  player.roomName = roomName;
-
-  rooms.set(roomName, room);
-
-  return room;
+button {
+  cursor: pointer;
+  font-weight: 700;
 }
 
-function getRoom(roomName) {
-  if (!roomName) {
-    return null;
-  }
-
-  return rooms.get(normalizeRoomName(roomName));
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
-function publicPlayers(room) {
-  return Array.from(room.players.values()).map((player) => ({
-    id: player.id,
-    name: player.name,
-    host: player.host,
-    ready: player.ready,
-    alive: player.alive,
-    color: player.color,
-    score: player.score,
-    snake: player.snake
-  }));
+.hidden {
+  display: none !important;
 }
 
-function send(ws, data) {
-  if (
-    ws &&
-    ws.readyState === WebSocket.OPEN
-  ) {
-    ws.send(JSON.stringify(data));
-  }
+.screen {
+  min-height: 100vh;
+  padding: 24px 16px;
 }
 
-function roomState(room) {
-  return {
-    type: 'roomState',
-    room: room.name,
-    hostId: room.hostId,
-    started: room.started,
-    paused: room.paused,
-    level: room.level,
-    players: publicPlayers(room)
-  };
+.menu-screen {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12vh;
 }
 
-function broadcastRoom(room, data) {
-  const message = JSON.stringify(data);
-
-  for (const player of room.players.values()) {
-    if (
-      player.ws &&
-      player.ws.readyState === WebSocket.OPEN
-    ) {
-      player.ws.send(message);
-    }
-  }
+.menu-content {
+  width: min(100%, 460px);
+  text-align: center;
 }
 
-function broadcastRoomState(room) {
-  broadcastRoom(room, roomState(room));
+.menu-content h1 {
+  margin: 0 0 28px;
+  font-size: clamp(42px, 10vw, 76px);
+  color: #fff;
+  text-shadow:
+    0 3px 0 #172554,
+    0 0 18px rgba(56, 189, 248, 0.8);
 }
 
-function sendRoomList(ws) {
-  const list = Array.from(rooms.values())
-    .filter((room) =>
-      !room.started &&
-      room.players.size < MAX_PLAYERS
-    )
-    .map((room) => ({
-      name: room.name,
-      players: room.players.size
-    }));
-
-  send(ws, {
-    type: 'roomList',
-    rooms: list
-  });
+.menu-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-function allJoinersReady(room) {
-  return Array.from(room.players.values())
-    .every((player) =>
-      player.host || player.ready
-    );
-}
-
-function setDirection(player, direction) {
-  const allowed = [
-    'up',
-    'down',
-    'left',
-    'right'
-  ];
-
-  if (!allowed.includes(direction)) {
-    return;
-  }
-
-  const opposite = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left'
-  };
-
-  if (direction !== opposite[player.dir]) {
-    player.nextDir = direction;
-  }
-}
-
-function resetRoomGame(room) {
-  room.food = [randomFood('red')];
-  room.paused = false;
-
-  for (const player of room.players.values()) {
-    player.dir = getSpawnDirection(player.id);
-player.nextDir = getSpawnDirection(player.id);
-    player.alive = true;
-    player.score = 0;
-    player.grow = 0;
-    player.snake = createSnake(player.id);
-  }
-}
-
-function stopFoodTimers(room) {
-  clearInterval(room.blueTimer);
-  clearInterval(room.greenTimer);
-
-  room.blueTimer = null;
-  room.greenTimer = null;
-}
-
-function startFoodTimers(room) {
-  stopFoodTimers(room);
-
-  room.blueTimer = setInterval(() => {
-    if (
-      !room.started ||
-      room.paused
-    ) {
-      return;
-    }
-
-    room.food.push(randomFood('blue'));
-
-    broadcastRoom(room, {
-      type: 'state',
-      players: publicPlayers(room),
-      food: room.food,
-      paused: room.paused
-    });
-  }, 8000);
-
-  room.greenTimer = setInterval(() => {
-    if (
-      !room.started ||
-      room.paused
-    ) {
-      return;
-    }
-
-    room.food.push(randomFood('green'));
-
-    broadcastRoom(room, {
-      type: 'state',
-      players: publicPlayers(room),
-      food: room.food,
-      paused: room.paused
-    });
-  }, 16000);
-}
-
-function startRoom(room) {
-  if (room.players.size < 1) {
-    return;
-  }
-
-  if (!allJoinersReady(room)) {
-    return;
-  }
-
-  room.started = true;
-  resetRoomGame(room);
-  startFoodTimers(room);
-
-  broadcastRoom(room, {
-    type: 'gameStart',
-    width: WIDTH,
-    height: HEIGHT,
-    size: SIZE,
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused,
-    level: room.level
-  });
-}
-
-function createLevelObstacles(level) {
-  const result = [];
-  const middleY = Math.floor(HEIGHT / 2);
-  const middleX = Math.floor(WIDTH / 2);
-
-  if (level === 1) {
-    return result;
-  }
-
-  if (level === 2 || level === 3) {
-    for (let x = 18; x < WIDTH - 18; x++) {
-      result.push({ x, y: middleY });
-    }
-  }
-
-  if (level === 3) {
-    for (let y = 10; y < HEIGHT - 10; y++) {
-      result.push({ x: middleX, y });
-    }
-  }
-
-  if (level === 4) {
-    const horizontalGapStart = middleX - 4;
-    const horizontalGapEnd = middleX + 4;
-    const verticalGapStart = middleY - 4;
-    const verticalGapEnd = middleY + 4;
-
-    for (let x = 12; x < WIDTH - 12; x++) {
-      if (
-        x < horizontalGapStart ||
-        x > horizontalGapEnd
-      ) {
-        result.push({ x, y: middleY - 10 });
-        result.push({ x, y: middleY + 10 });
-      }
-    }
-
-    for (let y = 12; y < HEIGHT - 12; y++) {
-      if (
-        y < verticalGapStart ||
-        y > verticalGapEnd
-      ) {
-        result.push({ x: middleX - 14, y });
-        result.push({ x: middleX + 14, y });
-      }
-    }
-  }
-
-  if (level === 5) {
-    const rows = [
-      { y: 15, start: 12, end: WIDTH - 14, side: 'right' },
-      { y: 30, start: 14, end: WIDTH - 12, side: 'left' },
-      { y: 45, start: 12, end: WIDTH - 14, side: 'right' },
-      { y: 60, start: 14, end: WIDTH - 12, side: 'left' }
-    ];
-
-    for (const row of rows) {
-      for (let x = row.start; x <= row.end; x++) {
-        const opening =
-          row.side === 'left'
-            ? x < row.start + 8
-            : x > row.end - 8;
-
-        if (!opening) {
-          result.push({ x, y: row.y });
-        }
-      }
-    }
-  }
-
-  if (level === 6) {
-    const wall = (x, y) => {
-      if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
-        result.push({ x, y });
-      }
-    };
-
-    const horizontal = (y, x1, x2, gap1, gap2) => {
-      for (let x = x1; x <= x2; x++) {
-        if (x < gap1 || x > gap2) {
-          wall(x, y);
-        }
-      }
-    };
-
-    const vertical = (x, y1, y2, gap1, gap2) => {
-      for (let y = y1; y <= y2; y++) {
-        if (y < gap1 || y > gap2) {
-          wall(x, y);
-        }
-      }
-    };
-
-    // Keep all walls well inside 0–71 x, 0–79 y
-    // Top half uses y up to ~24, bottom half starts at y=56
-
-    /*
-      TOP-LEFT BOX
-      Opening on the bottom-right side.
-    */
-    horizontal(8, 8, 22, 18, 22);
-    vertical(8, 8, 24, 18, 24);
-    horizontal(24, 8, 22, 8, 12);
-    vertical(22, 8, 24, 8, 12);
-
-    /*
-      TOP-RIGHT BOX
-      Opening on the bottom-left side.
-    */
-    horizontal(8, 49, 63, 49, 53);
-    vertical(63, 8, 24, 18, 24);
-    horizontal(24, 49, 63, 59, 63);
-    vertical(49, 8, 24, 8, 12);
-
-    /*
-      BOTTOM-LEFT BOX
-      Opening on the top-right side.
-    */
-    horizontal(56, 8, 22, 18, 22);
-    vertical(8, 56, 72, 56, 60);
-    horizontal(72, 8, 22, 8, 12);
-    vertical(22, 56, 72, 60, 72);
-
-    /*
-      BOTTOM-RIGHT BOX
-      Opening on the top-left side.
-    */
-    horizontal(56, 49, 63, 49, 53);
-    vertical(63, 56, 72, 56, 72);
-    horizontal(72, 49, 63, 59, 63);
-    vertical(49, 56, 72, 60, 72);
-
-    /*
-      CENTRAL BOX
-      Open passage on the left and right.
-    */
-    horizontal(32, 26, 46, 34, 38);
-    horizontal(48, 26, 46, 34, 38);
-    vertical(26, 32, 48, 38, 42);
-    vertical(46, 32, 48, 38, 42);
-
-    /*
-      EXTRA PUZZLE WALLS
-      These create paths between the corner boxes and center.
-    */
-    horizontal(16, 25, 33, 29, 33);
-    horizontal(16, 39, 47, 39, 43);
-
-    horizontal(64, 25, 33, 25, 29);
-    horizontal(64, 39, 47, 43, 47);
-
-    vertical(16, 25, 33, 29, 33);
-    vertical(16, 47, 55, 47, 51);
-
-    vertical(56, 25, 33, 25, 29);
-    vertical(56, 47, 55, 51, 55);
-  }
-
-    /*
-      CENTRAL BOX
-      Open passage on the left and right.
-    */
-    horizontal(
-      32,
-      26,
-      46,
-      34,
-      38
-    );
-
-    horizontal(
-      48,
-      26,
-      46,
-      34,
-      38
-    );
-
-    vertical(
-      26,
-      32,
-      48,
-      38,
-      42
-    );
-
-    vertical(
-      46,
-      32,
-      48,
-      38,
-      42
-    );
-
-    /*
-      EXTRA PUZZLE WALLS
-      These create paths between the corner boxes and center.
-    */
-    horizontal(16, 25, 33, 29, 33);
-    horizontal(16, 39, 47, 39, 43);
-
-    horizontal(64, 25, 33, 25, 29);
-    horizontal(64, 39, 47, 43, 47);
-
-    vertical(16, 25, 33, 29, 33);
-    vertical(16, 47, 55, 47, 51);
-
-    vertical(56, 25, 33, 25, 29);
-    vertical(56, 47, 55, 51, 55);
-  }
-
-  return result;
-}
-
-function movePlayer(room, player) {
-  if (!player.alive) {
-    return;
-  }
-
-  const opposite = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left'
-  };
-
-  if (
-    player.nextDir &&
-    player.nextDir !== opposite[player.dir]
-  ) {
-    player.dir = player.nextDir;
-  }
-
-  const head = {
-    ...player.snake[0]
-  };
-
-  if (player.dir === 'up') head.y--;
-  if (player.dir === 'down') head.y++;
-  if (player.dir === 'left') head.x--;
-  if (player.dir === 'right') head.x++;
-
-  const outside =
-    head.x < 0 ||
-    head.x >= WIDTH ||
-    head.y < 0 ||
-    head.y >= HEIGHT;
-
-  const levelObstacles =
-    createLevelObstacles(room.level || 1);
-
-  const hitsObstacle = levelObstacles.some((block) =>
-    block.x === head.x &&
-    block.y === head.y
-  );
-
-  const hitsSelf = player.snake
-    .slice(1)
-    .some((segment) =>
-      segment.x === head.x &&
-      segment.y === head.y
-    );
-
-  const hitsOther = Array.from(room.players.values())
-    .filter((other) =>
-      other.id !== player.id &&
-      other.alive
-    )
-    .some((other) =>
-      other.snake.some((segment) =>
-        segment.x === head.x &&
-        segment.y === head.y
-      )
-    );
-
-  if (
-    outside ||
-    hitsObstacle ||
-    hitsSelf ||
-    hitsOther
-  ) {
-    player.alive = false;
-    return;
-  }
-
-  player.snake.unshift(head);
-
-  const foodIndex = room.food.findIndex((apple) =>
-    head.x === apple.x &&
-    head.y === apple.y
-  );
-
-  if (foodIndex !== -1) {
-    const eatenApple = room.food[foodIndex];
-
-    player.score++;
-
-    if (eatenApple.type === 'blue') {
-      player.grow += 8;
-    } else if (eatenApple.type === 'green') {
-      player.grow += 15;
-    } else {
-      player.grow += 2;
-    }
-
-    if (eatenApple.type === 'red') {
-      room.food[foodIndex] = randomFood('red');
-    } else {
-      room.food.splice(foodIndex, 1);
-    }
-  }
-
-  if (player.grow > 0) {
-    player.grow--;
-  } else {
-    player.snake.pop();
-  }
-}
-
-function gameStep(room) {
-  if (
-    !room.started ||
-    room.paused
-  ) {
-    return;
-  }
-
-  for (const player of room.players.values()) {
-    movePlayer(room, player);
-  }
-
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused,
-    level: room.level
-  });
-}
-
-function removePlayer(player) {
-  const room = getRoom(player.roomName);
-
-  if (!room) {
-    return;
-  }
-
-  room.players.delete(player.id);
-
-  if (room.players.size === 0) {
-    stopFoodTimers(room);
-    rooms.delete(room.name);
-    return;
-  }
-
-  if (room.hostId === player.id) {
-  const newHost =
-    room.players.values().next().value;
-
-  if (newHost) {
-    room.hostId = newHost.id;
-
-    for (const other of room.players.values()) {
-      other.host = other.id === room.hostId;
-
-      if (other.host) {
-        other.ready = true;
-      }
-    }
-  }
-}
-
-  broadcastRoomState(room);
-}
-
-wss.on('connection', (ws) => {
-  const client = {
-    ws,
-    player: null
-  };
-
-  send(ws, {
-    type: 'connected'
-  });
-
-  ws.on('message', (rawMessage) => {
-    let data;
-
-    try {
-      data = JSON.parse(rawMessage.toString());
-    } catch (error) {
-      console.error('Invalid JSON from client:', rawMessage.toString());
-
-      send(ws, {
-        type: 'error',
-        message: 'Invalid JSON message.'
-      });
-
-      return;
-    }
-
-    try {
-      if (
-        !data ||
-        typeof data.type !== 'string'
-      ) {
-        send(ws, {
-          type: 'error',
-          message: 'Message type is required.'
-        });
-
-        return;
-      }
-
-      if (data.type === 'createRoom') {
-        const name = cleanText(data.name, 'Player');
-        const roomName = normalizeRoomName(data.room);
-
-        if (getRoom(roomName)) {
-          send(ws, {
-            type: 'error',
-            message: 'That room already exists.'
-          });
-
-          return;
-        }
-
-        const player = createPlayer(ws, name, true);
-        const room = createRoom(roomName, player);
-
-        client.player = player;
-
-        send(ws, {
-          type: 'roomJoined',
-          room: room.name,
-          host: true,
-          playerId: player.id
-        });
-
-        broadcastRoomState(room);
-        return;
-      }
-
-      if (data.type === 'listRooms') {
-        sendRoomList(ws);
-        return;
-      }
-
-      if (data.type === 'joinRoom') {
-        const name = cleanText(data.name, 'Player');
-        const roomName = normalizeRoomName(data.room);
-        const room = getRoom(roomName);
-
-        if (!room) {
-          send(ws, {
-            type: 'error',
-            message: 'Room not found.'
-          });
-
-          return;
-        }
-
-        if (room.started) {
-          send(ws, {
-            type: 'error',
-            message: 'That game has already started.'
-          });
-
-          return;
-        }
-
-        if (room.players.size >= MAX_PLAYERS) {
-          send(ws, {
-            type: 'error',
-            message: 'That room is full. Maximum is four players.'
-          });
-
-          return;
-        }
-
-        const player = createPlayer(ws, name, false);
-
-        player.ready = false;
-        player.roomName = room.name;
-
-        room.players.set(player.id, player);
-        client.player = player;
-
-        send(ws, {
-          type: 'roomJoined',
-          room: room.name,
-          host: false,
-          playerId: player.id
-        });
-
-        broadcastRoomState(room);
-        return;
-      }
-      if (data.type === 'selectLevel') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          room.started ||
-          !player.host
-        ) {
-          return;
-        }
-
-        const level = Number(data.level);
-
-        if (![1, 2, 3, 4, 5, 6].includes(level)) {
-          return;
-        }
-
-        room.level = level;
-        broadcastRoomState(room);
-        return;
-      }
-      if (data.type === 'ready') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          player.host
-        ) {
-          return;
-        }
-
-        player.ready = !player.ready;
-        broadcastRoomState(room);
-        return;
-      }
-
-      if (data.type === 'startRoom') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          !player.host
-        ) {
-          return;
-        }
-
-        if (!allJoinersReady(room)) {
-          send(ws, {
-            type: 'error',
-            message: 'Every player must be ready before starting.'
-          });
-
-          return;
-        }
-
-        startRoom(room);
-        return;
-      }
-
-      if (data.type === 'pause') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          !room.started ||
-          !player.host
-        ) {
-          return;
-        }
-
-        room.paused = !room.paused;
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
-        return;
-      }
-
-      if (data.type === 'restart') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          !room.started ||
-          !player.host
-        ) {
-          return;
-        }
-
-        resetRoomGame(room);
-        startFoodTimers(room);
-
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
-
-        return;
-      }
-
-      if (data.type === 'dir') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
-
-        if (
-          !room ||
-          !room.started ||
-          room.paused
-        ) {
-          return;
-        }
-
-        setDirection(player, data.dir);
-      }
-    } catch (error) {
-      console.error('Server game error:', error);
-
-      send(ws, {
-        type: 'error',
-        message: 'Server could not process that action.'
-      });
-    }
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-  });
-
-  ws.on('close', () => {
-    if (client.player) {
-      removePlayer(client.player);
-    }
-  });
-});
-
-setInterval(() => {
-  for (const room of rooms.values()) {
-    gameStep(room);
-  }
-}, TICK);
-
-server.listen(PORT, () => {
-  console.log(`Snake server listening on port ${PORT}`);
-});
-.room-level-button[data-level="6"] {
-  border-color: #ef4444;
+.menu-buttons button {
+  min-width: 170px;
+  padding: 15px 18px;
+  border: 2px solid #93c5fd;
+  border-radius: 16px;
   color: #fff;
   background: linear-gradient(
     135deg,
-    #991b1b,
-    #450a0a
+    #38bdf8,
+    #2563eb 55%,
+    #1e3a8a
   );
   box-shadow:
-    0 0 10px rgba(239, 68, 68, 0.65);
+    0 5px 0 #172554,
+    0 0 15px rgba(59, 130, 246, 0.8);
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
 
-.room-level-button[data-level="6"]:hover:not(:disabled) {
+.menu-buttons button:hover,
+.panel button:hover {
+  filter: brightness(1.15);
+}
+
+.menu-buttons button:active,
+.panel button:active {
+  transform: translateY(3px) scale(0.97);
+}
+
+.panel {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding: 24px;
+  border: 2px solid rgba(147, 197, 253, 0.8);
+  border-radius: 20px;
+  background: rgba(3, 15, 35, 0.9);
+  box-shadow:
+    0 0 25px rgba(14, 165, 233, 0.35),
+    inset 0 1px 3px rgba(255, 255, 255, 0.15);
+}
+
+.panel h2 {
+  margin: 0 0 24px;
+  text-align: center;
+  color: #bae6fd;
+}
+
+.panel label {
+  display: block;
+  margin: 14px 0 6px;
+  color: #dbeafe;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.panel input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 2px solid #64748b;
+  border-radius: 10px;
+  outline: none;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.panel input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+}
+
+.panel button {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 16px;
+  border: 2px solid #93c5fd;
+  border-radius: 12px;
+  color: #fff;
   background: linear-gradient(
     135deg,
-    #dc2626,
-    #7f1d1d
+    #38bdf8,
+    #2563eb 55%,
+    #1e3a8a
   );
+  box-shadow: 0 4px 0 #172554;
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
 
-.room-level-button[data-level="6"].selected {
-  border-color: #facc15;
+.panel .secondary-btn {
+  border-color: #94a3b8;
   background: linear-gradient(
     135deg,
-    #dc2626,
-    #7f1d1d
+    #64748b,
+    #334155
+  );
+  box-shadow: 0 4px 0 #1e293b;
+}
+
+.available-rooms {
+  max-height: 220px;
+  margin-top: 14px;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow:
+    inset 0 0 10px rgba(14, 165, 233, 0.25);
+  scrollbar-color: #38bdf8 #0f172a;
+  scrollbar-width: thin;
+}
+
+.available-rooms:empty {
+  display: none;
+}
+
+.available-room {
+  display: block;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 11px 12px;
+  border: 1px solid #64748b;
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(30, 64, 175, 0.85);
+  text-align: left;
+  box-shadow: none;
+}
+
+.available-room:last-child {
+  margin-bottom: 0;
+}
+
+.available-room:hover {
+  border-color: #bae6fd;
+  background: #2563eb;
+}
+
+.available-room.selected {
+  border-color: #fde047;
+  background: #15803d;
+  box-shadow:
+    0 0 10px rgba(250, 204, 21, 0.75);
+}
+
+.room-panel {
+  max-width: 520px;
+}
+
+.room-panel h2 {
+  margin-bottom: 20px;
+}
+
+#roomTitle {
+  color: #facc15;
+}
+
+.player-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.player-name {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-badge {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+#gameScreen {
+  min-height: 100vh;
+  background-color: #07111f;
+  background-image: url("btemplate.gif");
+  background-size: 100% 100%;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+
+#gameScreen .game-wrap {
+  min-height: 100vh;
+}
+
+.game-wrap {
+  position: relative;
+  width: min(100%, 720px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+}
+
+#status {
+  font-weight: 700;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.action-buttons button {
+  min-width: 105px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+
+#pause {
+  border: 2px solid #93c5fd;
+  background: linear-gradient(
+    135deg,
+    #38bdf8,
+    #2563eb 50%,
+    #1e3a8a
   );
   box-shadow:
-    0 0 16px rgba(250, 204, 21, 0.95);
+    0 4px 0 #172554,
+    0 0 10px rgba(59, 130, 246, 0.8);
 }
 
-.room-level-button[data-level="6"] small {
-  color: #fecaca;
+#restart {
+  border: 2px solid #ff8a8a;
+  background: linear-gradient(
+    135deg,
+    #ff3030,
+    #dc2626 45%,
+    #991b1b
+  );
+  box-shadow:
+    0 4px 0 #650f0f,
+    0 0 10px rgba(255, 50, 50, 0.75);
+}
+
+/* Green Menu button with yellow highlight */
+#menuBtn {
+  min-width: 105px;
+  padding: 12px 18px;
+  border: 2px solid #fde047;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    #22c55e 0%,
+    #16a34a 50%,
+    #166534 100%
+  );
+  box-shadow:
+    0 4px 0 #14532d,
+    0 0 10px rgba(250, 204, 21, 0.9),
+    inset 0 1px 3px rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 2px #14532d;
+}
+
+#pause:hover,
+#restart:hover,
+#menuBtn:hover {
+  filter: brightness(1.15);
+}
+
+#pause:active,
+#restart:active,
+#menuBtn:active {
+  transform: translateY(3px) scale(0.97);
+}
+
+#menuBtn:hover {
+  box-shadow:
+    0 4px 0 #14532d,
+    0 0 18px rgba(250, 204, 21, 1),
+    inset 0 1px 4px rgba(255, 255, 255, 0.7);
+}
+
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border: 2px solid #334155;
+  border-radius: 14px;
+  background: transparent;
+  touch-action: none;
+}
+
+.game-over-logo {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  width: min(80%, 320px);
+  max-height: 45%;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.game-over-logo.show {
+  display: block;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 75px 75px 75px;
+  grid-template-rows: 75px 75px 75px;
+  justify-content: center;
+  gap: 28px 35px;
+  margin-top: 30px;
+  padding: 10px;
+  user-select: none;
+  touch-action: none;
+}
+
+.controls button {
+  width: 75px;
+  height: 75px;
+  padding: 0;
+  border: 3px solid #ef4444;
+  border-radius: 14px;
+  color: #075985;
+  background: #dff7ff;
+  font-size: 20px;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.controls button:active,
+.controls button.pressed {
+  color: #991b1b;
+  border-color: #b91c1c;
+  background: #ffe0e0;
+  transform: scale(0.94);
+}
+
+.up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.down {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+@media (max-width: 480px) {
+  .screen {
+    padding: 16px 12px;
+  }
+
+  .menu-screen {
+    padding-bottom: 8vh;
+  }
+
+  .menu-buttons {
+    gap: 12px;
+  }
+
+  .menu-buttons button {
+    min-width: 145px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .hud {
+    align-items: stretch;
+  }
+
+  .action-buttons {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .action-buttons button {
+    flex: 1;
+    min-width: 0;
+    padding: 11px 7px;
+    font-size: 12px;
+  }
+
+  .controls {
+    grid-template-columns: 75px 75px 75px;
+    grid-template-rows: 75px 75px 75px;
+    gap: 28px;
+  }
+}
+.room-level-box {
+  width: 100%;
+  max-height: 230px;
+  margin: 24px 0 6px;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 3px solid #38bdf8;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow:
+    0 0 16px rgba(56, 189, 248, 0.4),
+    inset 0 0 10px rgba(14, 165, 233, 0.2);
+  scrollbar-color: #38bdf8 #0f172a;
+  scrollbar-width: thin;
+}
+
+.room-level-box h3 {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  margin: -16px -16px 14px;
+  padding: 14px 10px;
+  border-bottom: 1px solid #38bdf8;
+  color: #bae6fd;
+  background: #0f172a;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 16px;
+}
+
+.room-level-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.room-level-button {
+  width: 100%;
+  margin: 0;
+  padding: 10px 6px;
+  border: 2px solid #64748b;
+  border-radius: 9px;
+  color: #fff;
+  background: #334155;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.room-level-button small {
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.room-level-button:hover:not(:disabled) {
+  border-color: #bae6fd;
+  background: #2563eb;
+}
+
+.room-level-button.selected {
+  border-color: #fde047;
+  background: #15803d;
+  box-shadow:
+    0 0 10px rgba(250, 204, 21, 0.8);
+}
+
+.room-level-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+#roomLevelStatus {
+  margin-top: 12px;
+  color: #facc15;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .room-level-box {
+    max-height: 210px;
+  }
+
+  .room-level-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
