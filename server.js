@@ -431,7 +431,9 @@ function createLevelObstacles(level) {
 
   if (level === 6) {
     const wall = (x, y) => {
-      result.push({ x, y });
+      if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+        result.push({ x, y });
+      }
     };
 
     const horizontal = (y, x1, x2, gap1, gap2) => {
@@ -450,8 +452,8 @@ function createLevelObstacles(level) {
       }
     };
 
-    const centerX = Math.floor(WIDTH / 2);
-    const centerY = Math.floor(HEIGHT / 2);
+    // Keep all walls well inside 0–71 x, 0–79 y
+    // Top half uses y up to ~24, bottom half starts at y=56
 
     /*
       TOP-LEFT BOX
@@ -475,19 +477,45 @@ function createLevelObstacles(level) {
       BOTTOM-LEFT BOX
       Opening on the top-right side.
     */
-    horizontal(72, 8, 22, 18, 22);
+    horizontal(56, 8, 22, 18, 22);
     vertical(8, 56, 72, 56, 60);
-    horizontal(56, 8, 22, 8, 12);
+    horizontal(72, 8, 22, 8, 12);
     vertical(22, 56, 72, 60, 72);
 
     /*
       BOTTOM-RIGHT BOX
       Opening on the top-left side.
     */
-    horizontal(72, 49, 63, 49, 53);
+    horizontal(56, 49, 63, 49, 53);
     vertical(63, 56, 72, 56, 72);
-    horizontal(56, 49, 63, 59, 63);
+    horizontal(72, 49, 63, 59, 63);
     vertical(49, 56, 72, 60, 72);
+
+    /*
+      CENTRAL BOX
+      Open passage on the left and right.
+    */
+    horizontal(32, 26, 46, 34, 38);
+    horizontal(48, 26, 46, 34, 38);
+    vertical(26, 32, 48, 38, 42);
+    vertical(46, 32, 48, 38, 42);
+
+    /*
+      EXTRA PUZZLE WALLS
+      These create paths between the corner boxes and center.
+    */
+    horizontal(16, 25, 33, 29, 33);
+    horizontal(16, 39, 47, 39, 43);
+
+    horizontal(64, 25, 33, 25, 29);
+    horizontal(64, 39, 47, 43, 47);
+
+    vertical(16, 25, 33, 29, 33);
+    vertical(16, 47, 55, 47, 51);
+
+    vertical(56, 25, 33, 25, 29);
+    vertical(56, 47, 55, 51, 55);
+  }
 
     /*
       CENTRAL BOX
