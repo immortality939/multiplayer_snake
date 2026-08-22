@@ -316,16 +316,20 @@ function handleServerMessage(data) {
     mode = 'online';
     isPaused = Boolean(data.paused);
 
-    multiplayerLevel = data.level || 1;
-    selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles(multiplayerLevel);
-
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
-
     gridWidth = data.width || gridWidth;
     gridHeight = data.height || gridHeight;
     size = data.size || size;
+
+    multiplayerLevel = data.level || 1;
+    selectedLevel = multiplayerLevel;
+
+    // Always rebuild obstacles from server level
+    obstacles = createLevelObstacles(multiplayerLevel);
+
+    console.log('gameStart level:', multiplayerLevel, 'obstacles:', obstacles.length);
+
+    players = convertPlayers(data.players);
+    food = normalizeFood(data.food);
 
     stopOfflineAppleTimers();
     stopIntroMusic();
@@ -337,15 +341,19 @@ function handleServerMessage(data) {
     return;
   }
 
-  if (data.type === 'state') {
+    if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
 
     if (data.level) {
       multiplayerLevel = data.level;
       selectedLevel = data.level;
-      obstacles = createLevelObstacles(multiplayerLevel);
     }
+
+    obstacles = createLevelObstacles(multiplayerLevel);
+
+    // Debug: confirm level in browser console
+    console.log('Multiplayer level:', multiplayerLevel, 'obstacles:', obstacles.length);
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
