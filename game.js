@@ -371,6 +371,7 @@ function handleServerMessage(data) {
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
+  console.log('state boss data:', data.boss ? 'RECEIVED' : 'NULL', 'remoteBoss:', remoteBoss ? 'SET' : 'NULL', 'level:', selectedLevel);
   if (data.boss && data.boss.snake) {
     remoteBoss = {
       snake: data.boss.snake,
@@ -2386,6 +2387,8 @@ function drawOnline() {
       );
     }
   }
+  
+    console.log('drawOnline remoteBoss:', remoteBoss ? 'EXISTS' : 'NULL', 'alive:', remoteBoss?.alive, 'level:', selectedLevel);
   
   if (remoteBoss && remoteBoss.alive && selectedLevel === 6) {
     drawRemoteBoss();
