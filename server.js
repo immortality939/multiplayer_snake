@@ -262,7 +262,22 @@ function stopFoodTimers(room) {
     boss.rageTimer = null;
   }
 }
+function gameStatePayload(room) {
+  const boss = room.level === 6 ? bossState.get(room.name) : null;
 
+  return {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused,
+    level: room.level,
+    boss: boss ? {
+      snake: boss.snake,
+      alive: boss.alive,
+      rageActive: boss.rageActive
+    } : null
+  };
+}
 function startFoodTimers(room) {
   stopFoodTimers(room);
   
@@ -300,11 +315,7 @@ function startFoodTimers(room) {
 
     room.food.push(randomFood('blue'));
 
-    broadcastRoom(room, {
-      type: 'state',
-      players: publicPlayers(room),
-      food: room.food,
-      paused: room.paused
+    broadcastRoom(room, gameStatePayload(room));
     });
   }, CONFIG.timings.blueAppleSpawn);
 
@@ -315,12 +326,7 @@ function startFoodTimers(room) {
 
     room.food.push(randomFood('green'));
 
-    broadcastRoom(room, {
-      type: 'state',
-      players: publicPlayers(room),
-      food: room.food,
-      paused: room.paused
-    });
+    broadcastRoom(room, gameStatePayload(room));
   }, CONFIG.timings.greenAppleSpawn);
 }
 
@@ -899,22 +905,18 @@ function gameStep(room) {
 
   const boss = room.level === 6 ? bossState.get(room.name) : null;
 
-  const boss = room.level === 6 ? bossState.get(room.name) : null;
-
-const boss = room.level === 6 ? bossState.get(room.name) : null;
-
-broadcastRoom(room, {
-  type: 'state',
-  players: publicPlayers(room),
-  food: room.food,
-  paused: room.paused,
-  level: room.level,
-  boss: boss ? {
-    snake: boss.snake,
-    alive: boss.alive,
-    rageActive: boss.rageActive
-  } : null
-});
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused,
+    level: room.level,
+    boss: boss ? {
+      snake: boss.snake,
+      alive: boss.alive,
+      rageActive: boss.rageActive
+    } : null
+  });
 }
 
 function checkBossPlayerCollisionServer(room) {
@@ -971,11 +973,11 @@ function removePlayer(player) {
   room.players.delete(player.id);
 
   if (room.players.size === 0) {
-  stopFoodTimers(room);
-  bossState.delete(room.name);
-  rooms.delete(room.name);
-  return;
-}
+    stopFoodTimers(room);
+    bossState.delete(room.name);
+    rooms.delete(room.name);
+    return;
+  }
 
   if (room.hostId === player.id) {
     const newHost = room.players.values().next().value;
@@ -1180,12 +1182,7 @@ wss.on('connection', (ws) => {
 
         room.paused = !room.paused;
 
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
+        broadcastRoom(room, gameStatePayload(room));
 
         return;
       }
@@ -1201,12 +1198,7 @@ wss.on('connection', (ws) => {
         resetRoomGame(room);
         startFoodTimers(room);
 
-        broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused
-        });
+        broadcastRoom(room, gameStatePayload(room));
 
         return;
       }
