@@ -326,40 +326,41 @@ function handleServerMessage(data) {
     return;
   }
 
-  if (data.type === 'gameStart') {
-    mode = 'online';
-    isPaused = Boolean(data.paused);
+if (data.type === 'gameStart') {
+  mode = 'online';
+  isPaused = Boolean(data.paused);
 
-    multiplayerLevel = data.level || 1;
-    selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles();
+  multiplayerLevel = data.level || 1;
+  selectedLevel = multiplayerLevel;
 
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
+  obstacles = data.obstacles || [];
 
-    if (data.boss && data.boss.snake) {
-      remoteBoss = {
-        snake: data.boss.snake,
-        alive: data.boss.alive,
-        rageActive: data.boss.rageActive
-      };
-    } else {
-      remoteBoss = null;
-    }
+  players = convertPlayers(data.players);
+  food = normalizeFood(data.food);
 
-    gridWidth = data.width || gridWidth;
-    gridHeight = data.height || gridHeight;
-    size = data.size || size;
-
-    stopOfflineAppleTimers();
-    stopIntroMusic();
-    playGameMusic();
-    showScreen(gameScreen);
-    updatePauseButton();
-    setStatus(`Level ${multiplayerLevel}`);
-    draw();
-    return;
+  if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
   }
+
+  gridWidth = data.width || gridWidth;
+  gridHeight = data.height || gridHeight;
+  size = data.size || size;
+
+  stopOfflineAppleTimers();
+  stopIntroMusic();
+  playGameMusic();
+  showScreen(gameScreen);
+  updatePauseButton();
+  setStatus(`Level ${multiplayerLevel}`);
+  draw();
+  return;
+}
   
   if (data.type === 'bossDied') {
     remoteBoss = null;
@@ -368,25 +369,27 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'state') {
-    mode = 'online';
-    isPaused = Boolean(data.paused);
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
+  mode = 'online';
+  isPaused = Boolean(data.paused);
 
-    if (data.boss && data.boss.snake) {
-      remoteBoss = {
-        snake: data.boss.snake,
-        alive: data.boss.alive,
-        rageActive: data.boss.rageActive
-      };
-    } else {
-      remoteBoss = null;
-    }
+  players = convertPlayers(data.players);
+  food = normalizeFood(data.food);
 
-    updatePauseButton();
-    setStatus(isPaused ? 'Paused' : 'Connected');
-    draw();
+  obstacles = data.obstacles || obstacles;
+
+  if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
   }
+
+  updatePauseButton();
+  setStatus(isPaused ? 'Paused' : 'Connected');
+  draw();
 }
 
 function renderAvailableRooms(rooms) {
