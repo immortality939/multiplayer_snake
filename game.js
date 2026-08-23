@@ -1,4 +1,6 @@
-const WS_URL = 'wss://multiplayer-snake-9g07.onrender.com';
+// Use config from snake.js
+// Use config from config.js
+const WS_URL = window.GAME_CONFIG?.multiplayer?.wsUrl || 'wss://multiplayer-snake-9g07.onrender.com';
 
 const mainMenu = document.getElementById('mainMenu');
 const levelScreen = document.getElementById('levelScreen');
@@ -84,16 +86,20 @@ let food = [
   }
 ];
 
-let gridWidth = 72;
-let gridHeight = 80;
-let size = 5;
-const drawSize = 5;
+// Grid settings from config.js
+let gridWidth = window.GAME_CONFIG?.grid?.width || 72;
+let gridHeight = window.GAME_CONFIG?.grid?.height || 80;
+let size = window.GAME_CONFIG?.grid?.cellSize || 5;
+const drawSize = window.GAME_CONFIG?.grid?.drawSize || 5;
 
-let localSnake = [
-  { x: 10, y: 15 },
-  { x: 9, y: 10 },
-  { x: 8, y: 10 }
-];
+// Initial snake from config.js
+const initialPos = window.GAME_CONFIG?.initialPosition || { x: 10, y: 5 };
+const initialLen = window.GAME_CONFIG?.initialLength || 3;
+
+let localSnake = [];
+for (let i = 0; i < initialLen; i++) {
+  localSnake.push({ x: initialPos.x - i, y: initialPos.y });
+}
 
 let localDir = 'right';
 let localNextDir = 'right';
@@ -133,7 +139,7 @@ function setStatus(text) {
 function playIntroMusic() {
   if (!introMusic) return;
 
-  introMusic.volume = 0.35;
+  introMusic.volume = window.GAME_CONFIG?.audio?.introVolume || 0.35;
 
   const attempt = introMusic.play();
 
@@ -154,7 +160,7 @@ function stopIntroMusic() {
 function playGameMusic() {
   if (!bgMusic) return;
 
-  bgMusic.volume = 0.35;
+  bgMusic.volume = window.GAME_CONFIG?.audio?.bgVolume || 0.35;
   bgMusic.loop = true;
   bgMusic.play().catch(() => {});
 }
@@ -920,13 +926,14 @@ function moveEnemy(enemy) {
 
     enemy.score++;
 
-    if (apple.type === 'blue') {
-      enemy.grow += 8;
-    } else if (apple.type === 'green') {
-      enemy.grow += 15;
-    } else {
-      enemy.grow += 2;
-    }
+    const growth = window.GAME_CONFIG?.foodGrowth || { red: 2, blue: 8, green: 15 };
+if (apple.type === 'blue') {
+  enemy.grow += growth.blue;
+} else if (apple.type === 'green') {
+  enemy.grow += growth.green;
+} else {
+  enemy.grow += growth.red;
+}
 
     if (apple.type === 'red') {
       food[foodIndex] = randomFood('red');
@@ -945,38 +952,32 @@ function moveEnemy(enemy) {
 function startOfflineAppleTimers() {
   stopOfflineAppleTimers();
 
-  offlineBlueTimer = setInterval(() => {
-    if (
-      mode === 'offline' &&
-      !isPaused &&
-      !localGameOverShown
-    ) {
-      food.push(randomFood('blue'));
-      draw();
-    }
-  }, 8000);
+  const timings = window.GAME_CONFIG?.timings || {
+  blueAppleSpawn: 8000,
+  greenAppleSpawn: 16000,
+  enemySpawn: 20000
+};
 
-  offlineGreenTimer = setInterval(() => {
-    if (
-      mode === 'offline' &&
-      !isPaused &&
-      !localGameOverShown
-    ) {
-      food.push(randomFood('green'));
-      draw();
-    }
-  }, 16000);
+offlineBlueTimer = setInterval(() => {
+  if (mode === 'offline' && !isPaused && !localGameOverShown) {
+    food.push(randomFood('blue'));
+    draw();
+  }
+}, timings.blueAppleSpawn);
 
-  offlineEnemyTimer = setInterval(() => {
-    if (
-      mode === 'offline' &&
-      !isPaused &&
-      !localGameOverShown
-    ) {
-      spawnEnemy();
-      draw();
-    }
-  }, 20000);
+offlineGreenTimer = setInterval(() => {
+  if (mode === 'offline' && !isPaused && !localGameOverShown) {
+    food.push(randomFood('green'));
+    draw();
+  }
+}, timings.greenAppleSpawn);
+
+offlineEnemyTimer = setInterval(() => {
+  if (mode === 'offline' && !isPaused && !localGameOverShown) {
+    spawnEnemy();
+    draw();
+  }
+}, timings.enemySpawn);
 }
 
 function stopOfflineAppleTimers() {
@@ -1138,9 +1139,7 @@ level4Btn.addEventListener('click', () => {
 level5Btn.addEventListener('click', () => {
   startSelectedLevel(5);
 });
-level6Btn.addEventListener('click', () => {
-  startSelectedLevel(6);
-});
+
 level6Btn.addEventListener('click', () => {
   startSelectedLevel(6);
 });
@@ -1215,11 +1214,13 @@ function setDirection(current, next) {
 }
 
 function resetLocalGame() {
-  localSnake = [
-    { x: 10, y: 10 },
-    { x: 9, y: 10 },
-    { x: 8, y: 10 }
-  ];
+  const cfgInitPos = (window.GAME_CONFIG && window.GAME_CONFIG.initialPosition) || { x: 10, y: 8 };
+  const cfgInitLen = (window.GAME_CONFIG && window.GAME_CONFIG.initialLength) || 3;
+
+  localSnake = [];
+  for (let i = 0; i < cfgInitLen; i++) {
+    localSnake.push({ x: cfgInitPos.x - i, y: cfgInitPos.y });
+  }
 
   localDir = 'right';
   localNextDir = 'right';
@@ -1871,13 +1872,14 @@ function stepLocal() {
 
     localScore++;
 
-    if (eatenApple.type === 'blue') {
-      localGrow += 8;
-    } else if (eatenApple.type === 'green') {
-      localGrow += 15;
-    } else {
-      localGrow += 2;
-    }
+    const growth = window.GAME_CONFIG?.foodGrowth || { red: 2, blue: 8, green: 15 };
+if (eatenApple.type === 'blue') {
+  localGrow += growth.blue;
+} else if (eatenApple.type === 'green') {
+  localGrow += growth.green;
+} else {
+  localGrow += growth.red;
+}
 
     if (eatenApple.type === 'red') {
       food[foodIndex] = randomFood('red');
@@ -1917,4 +1919,5 @@ connectSocket();
 canvas.width = 360;
 canvas.height = 400;
 
-setInterval(gameLoop, 120);
+const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 120;
+setInterval(gameLoop, gameSpeed);
