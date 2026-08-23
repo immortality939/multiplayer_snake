@@ -113,7 +113,15 @@ let offlineGreenTimer = null;
 let offlineEnemyTimer = null;
 
 let enemies = [];
-
+let remoteBoss = null;
+let bossSnake = null;
+let bossTimers = {
+  rage: null,
+  blink: null
+};
+let bossRageActive = false;
+let bossRageEndTime = 0;
+let bossPatrolTarget = null;
 function showScreen(screen) {
   mainMenu.classList.add('hidden');
   levelScreen.classList.add('hidden');
@@ -328,6 +336,16 @@ function handleServerMessage(data) {
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
+    
+      if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
+  }
 
     gridWidth = data.width || gridWidth;
     gridHeight = data.height || gridHeight;
@@ -342,13 +360,26 @@ function handleServerMessage(data) {
     draw();
     return;
   }
+  
+  if (data.type === 'bossDied') {
+  remoteBoss = null;
+  // Optional: show a "BOSS DEFEATED" message here
+}
 
   if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
-
+  if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
+  }
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
     draw();
@@ -628,6 +659,479 @@ function spawnEnemy() {
   console.log('Enemy spawned');
 }
 
+function createBossSnake() {
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const baseSpeed = bossConfig.baseSpeedMs || 120;
+
+  // Spawn in middle of board
+  const startX = Math.floor(gridWidth / 2);
+  const startY = Math.floor(gridHeight / 2);
+
+  // Initial length
+  const initialLen = 20;
+
+  const snake = [];
+  for (let i = 0; i < initialLen; i++) {
+    snake.push({ x: startX - i, y: startY });
+  }
+
+return {
+  snake,
+  dir: 'right',
+  nextDir: 'right',
+  alive: true,
+  grow: 0,
+  score: 0,
+  baseSpeed,
+  currentSpeed: baseSpeed,
+  lastMoveTime: 0,
+  rageActive: false,
+  patrolTarget: getRandomPatrolTarget()
+};
+}
+function startBossTimers() {
+  stopBossTimers();
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const rageInterval = bossConfig.rageIntervalMs || 5000;
+  const rageDuration = bossConfig.rageDurationMs || 3000;
+  const blinkInterval = 100; // fast blink
+
+  bossTimers.rage = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      return;
+    }
+
+    activateBossRage(rageDuration);
+  }, rageInterval);
+
+  bossTimers.blink = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+      return;
+    }
+    // Blink handled in drawBossSnake()
+  }, blinkInterval);
+}
+
+
+
+function moveBossSnake() {
+  if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - bossSnake.lastMoveTime < bossSnake.currentSpeed) {
+    return;
+  }
+  bossSnake.lastMoveTime = now;
+
+  const head = bossSnake.snake[0];
+
+  // Get best target (head or tail of player)
+  const bestTarget = getBestBossTarget();
+
+  const distance = Math.abs(head.x - bestTarget.x) + Math.abs(head.y - bestTarget.y);
+
+  // If player is near, chase; otherwise patrol
+  if (distance < 20) {
+    const newDir = getBossChaseDirectionWithAvoidance(head, bestTarget);
+    if (newDir) {
+      bossSnake.nextDir = newDir;
+    }
+    // Reset patrol target when chasing
+    bossSnake.patrolTarget = null;
+  } else {
+    // Patrol: move toward patrol target
+    if (!bossSnake.patrolTarget) {
+      bossSnake.patrolTarget = getRandomPatrolTarget();
+    }
+
+    // If reached patrol target, pick new one
+    const patrolHead = bossSnake.snake[0];
+    const patrolDist =
+      Math.abs(patrolHead.x - bossSnake.patrolTarget.x) +
+      Math.abs(patrolHead.y - bossSnake.patrolTarget.y);
+
+    if (patrolDist < 2) {
+      bossSnake.patrolTarget = getRandomPatrolTarget();
+    }
+
+    const newDir = getBossPatrolDirection(patrolHead, bossSnake.patrolTarget);
+    if (newDir) {
+      bossSnake.nextDir = newDir;
+    }
+  }
+
+  // Apply direction (no 180° turns)
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  if (bossSnake.nextDir && bossSnake.nextDir !== opposite[bossSnake.dir]) {
+    bossSnake.dir = bossSnake.nextDir;
+  }
+
+  const newHead = { ...head };
+  if (bossSnake.dir === 'up') newHead.y--;
+  if (bossSnake.dir === 'down') newHead.y++;
+  if (bossSnake.dir === 'left') newHead.x--;
+  if (bossSnake.dir === 'right') newHead.x++;
+
+  // If next step hits border, try to find any safe direction
+  if (newHead.x < 0 || newHead.x >= gridWidth || newHead.y < 0 || newHead.y >= gridHeight) {
+    const safeDir = findAnySafeDirection(head);
+    if (safeDir) {
+      bossSnake.dir = safeDir;
+      newHead.x = head.x;
+      newHead.y = head.y;
+      if (bossSnake.dir === 'up') newHead.y--;
+      if (bossSnake.dir === 'down') newHead.y++;
+      if (bossSnake.dir === 'left') newHead.x--;
+      if (bossSnake.dir === 'right') newHead.x++;
+    } else {
+      // Truly trapped → die
+      bossSnake.alive = false;
+      stopBossTimers();
+      return;
+    }
+  }
+
+  bossSnake.snake.unshift(newHead);
+
+  // BOSS does not eat apples, just trim tail
+  if (bossSnake.grow > 0) {
+    bossSnake.grow--;
+  } else {
+    bossSnake.snake.pop();
+  }
+}
+
+function getBestBossTarget() {
+  // For now, only one player in single-player
+  const playerSegments = localSnake;
+  if (!playerSegments || playerSegments.length === 0) {
+    return localSnake[0]; // fallback to head
+  }
+
+  const head = playerSegments[0];
+  const tail = playerSegments[playerSegments.length - 1];
+  const bossHead = bossSnake.snake[0];
+
+  const distHead = Math.abs(bossHead.x - head.x) + Math.abs(bossHead.y - head.y);
+  const distTail = Math.abs(bossHead.x - tail.x) + Math.abs(bossHead.y - tail.y);
+
+  return distTail < distHead ? tail : head;
+}
+
+function getRandomPatrolTarget() {
+  // Choose one of the four corners as patrol target
+  const corners = [
+    { x: 5, y: 5 },
+    { x: gridWidth - 6, y: 5 },
+    { x: gridWidth - 6, y: gridHeight - 6 },
+    { x: 5, y: gridHeight - 6 }
+  ];
+  return corners[Math.floor(Math.random() * corners.length)];
+}
+
+function getBossPatrolDirection(head, target) {
+  const dx = target.x - head.x;
+  const dy = target.y - head.y;
+
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+  const candidates = [];
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    candidates.push(dx > 0 ? 'right' : 'left');
+    candidates.push(dy > 0 ? 'down' : 'up');
+  } else {
+    candidates.push(dy > 0 ? 'down' : 'up');
+    candidates.push(dx > 0 ? 'right' : 'left');
+  }
+
+  for (const dir of candidates) {
+    if (dir === opposite[bossSnake.dir]) continue;
+    if (isBossDirectionSafe(head, dir)) return dir;
+  }
+
+  return findAnySafeDirection(head);
+}
+
+function getBossWanderDirection(head) {
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+  // Prefer continuing current direction if safe
+  if (isBossDirectionSafe(head, bossSnake.dir)) {
+    return bossSnake.dir;
+  }
+
+  // Try to turn left/right relative to current direction
+  const leftTurn = {
+    up: 'left',
+    left: 'down',
+    down: 'right',
+    right: 'up'
+  }[bossSnake.dir];
+
+  const rightTurn = {
+    up: 'right',
+    right: 'down',
+    down: 'left',
+    left: 'up'
+  }[bossSnake.dir];
+
+  if (isBossDirectionSafe(head, leftTurn)) return leftTurn;
+  if (isBossDirectionSafe(head, rightTurn)) return rightTurn;
+
+  // Last resort: any safe direction (even opposite)
+  return findAnySafeDirection(head);
+}
+
+function isBossDirectionSafe(head, dir) {
+  const next = { ...head };
+  if (dir === 'up') next.y--;
+  if (dir === 'down') next.y++;
+  if (dir === 'left') next.x--;
+  if (dir === 'right') next.x++;
+
+  // Check borders
+  if (next.x < 0 || next.x >= gridWidth || next.y < 0 || next.y >= gridHeight) {
+    return false;
+  }
+
+  // Check level obstacles (walls)
+  const levelObstacles = createLevelObstacles(selectedLevel || 1);
+  for (let i = 0; i < levelObstacles.length; i++) {
+    if (levelObstacles[i].x === next.x && levelObstacles[i].y === next.y) {
+      return false;
+    }
+  }
+
+  // Avoid self-collision
+  for (let i = 0; i < bossSnake.snake.length - 1; i++) {
+    if (bossSnake.snake[i].x === next.x && bossSnake.snake[i].y === next.y) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function findAnySafeDirection(head) {
+  const dirs = ['up', 'down', 'left', 'right'];
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+  for (const dir of dirs) {
+    if (dir === opposite[bossSnake.dir]) continue;
+    if (isBossDirectionSafe(head, dir)) return dir;
+  }
+
+  // If all else fails, try opposite too
+  for (const dir of dirs) {
+    if (isBossDirectionSafe(head, dir)) return dir;
+  }
+
+  return null;
+}
+
+function getBossChaseDirectionWithAvoidance(head, target) {
+  const dx = target.x - head.x;
+  const dy = target.y - head.y;
+
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+  // Prefer axis with larger distance
+  const candidates = [];
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    candidates.push(dx > 0 ? 'right' : 'left');
+    candidates.push(dy > 0 ? 'down' : 'up');
+  } else {
+    candidates.push(dy > 0 ? 'down' : 'up');
+    candidates.push(dx > 0 ? 'right' : 'left');
+  }
+
+  // Pick first safe direction (not opposite, not into border)
+  for (const dir of candidates) {
+    if (dir === opposite[bossSnake.dir]) continue;
+    if (isBossDirectionSafe(head, dir)) return dir;
+  }
+
+  // Fallback: any safe direction
+  return findAnySafeDirection(head);
+}
+
+function getBossChaseDirection(head, target) {
+  const dx = target.x - head.x;
+  const dy = target.y - head.y;
+
+  const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+  // Prefer horizontal or vertical based on distance
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const dir = dx > 0 ? 'right' : 'left';
+    if (dir !== opposite[bossSnake.dir]) return dir;
+  }
+
+  if (dy !== 0) {
+    const dir = dy > 0 ? 'down' : 'up';
+    if (dir !== opposite[bossSnake.dir]) return dir;
+  }
+
+  // Fallback: try perpendicular
+  if (bossSnake.dir === 'up' || bossSnake.dir === 'down') {
+    return dx > 0 ? 'right' : 'left';
+  } else {
+    return dy > 0 ? 'down' : 'up';
+  }
+}
+
+function checkBossPlayerCollision() {
+  if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+    return;
+  }
+
+  const bossSegments = bossSnake.snake;
+  const playerSegments = localSnake;
+
+  for (let i = 0; i < bossSegments.length; i++) {
+    const bossPart = bossSegments[i];
+
+    for (let j = 0; j < playerSegments.length; j++) {
+      const playerPart = playerSegments[j];
+
+      if (bossPart.x === playerPart.x && bossPart.y === playerPart.y) {
+        // Collision detected
+        if (j === 0) {
+          // Player head hit → player dies
+          showOfflineGameOver();
+          return;
+        }
+
+        // BOSS grows by 2 per pixel
+        bossSnake.grow += 2;
+
+        // Player damage based on where bitten
+        const playerLength = playerSegments.length;
+        const bitePositionRatio = j / playerLength; // 0 = head, 1 = tail
+
+        if (bitePositionRatio < 0.3) {
+          // Bitten near head → die
+          showOfflineGameOver();
+          return;
+        } else if (bitePositionRatio < 0.7) {
+          // Bitten in middle → cut to half
+          localSnake = localSnake.slice(0, Math.ceil(playerLength / 2));
+        } else {
+          // Bitten near tail → reduce length by 1
+          if (localSnake.length > 3) {
+            localSnake.pop();
+          }
+        }
+
+        return;
+      }
+    }
+  }
+}
+
+function drawBossSnake() {
+  if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+    return;
+  }
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const baseColor = bossConfig.baseColor || '#8b5cf6';
+  const rageColor = bossConfig.rageColor || '#ef4444';
+  const highlightColor = bossConfig.highlightColor || '#ef4444';
+
+  // Blink during rage
+  let drawColor = baseColor;
+  if (bossRageActive) {
+    const now = Date.now();
+    if (now < bossRageEndTime) {
+      // Fast blink: toggle every 100ms
+      if (Math.floor(now / 100) % 2 === 0) {
+        drawColor = rageColor;
+      }
+    } else {
+      bossRageActive = false;
+    }
+  }
+
+  // Draw body with highlights
+  ctx.strokeStyle = drawColor;
+  ctx.lineWidth = drawSize * 0.85;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+  for (let i = bossSnake.snake.length - 1; i >= 0; i--) {
+    const segment = bossSnake.snake[i];
+    const x = segment.x * drawSize + drawSize / 2;
+    const y = segment.y * drawSize + drawSize / 2;
+
+    if (i === bossSnake.snake.length - 1) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+
+  // Draw head
+  const head = bossSnake.snake[0];
+  const hx = head.x * drawSize + drawSize / 2;
+  const hy = head.y * drawSize + drawSize / 2;
+
+  ctx.fillStyle = drawColor;
+  ctx.beginPath();
+  ctx.arc(hx, hy, drawSize * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw red highlights on sides
+  ctx.strokeStyle = highlightColor;
+  ctx.lineWidth = 2;
+  for (let i = 1; i < bossSnake.snake.length - 1; i++) {
+    const segment = bossSnake.snake[i];
+    const x = segment.x * drawSize;
+    const y = segment.y * drawSize;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + drawSize, y);
+    ctx.stroke();
+  }
+}
+
+function stopBossTimers() {
+  clearInterval(bossTimers.rage);
+  clearInterval(bossTimers.blink);
+
+  bossTimers.rage = null;
+  bossTimers.blink = null;
+  bossRageActive = false;
+}
+
+function activateBossRage(durationMs) {
+  if (!bossSnake || !bossSnake.alive) return;
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const rageSpeed = bossConfig.rageSpeedMs || 90; // faster during rage
+
+  bossSnake.rageActive = true;
+  bossSnake.currentSpeed = rageSpeed;
+  bossRageActive = true;
+  bossRageEndTime = Date.now() + durationMs;
+
+  // End rage after duration
+  setTimeout(() => {
+    if (!bossSnake || !bossSnake.alive) return;
+
+    bossSnake.rageActive = false;
+    bossSnake.currentSpeed = bossSnake.baseSpeed;
+    bossRageActive = false;
+  }, durationMs);
+}
 function getNextEnemyPosition(position, direction) {
   const next = {
     x: position.x,
@@ -926,7 +1430,7 @@ function moveEnemy(enemy) {
 
     enemy.score++;
 
-    const growth = window.GAME_CONFIG?.foodGrowth || { red: 2, blue: 8, green: 15 };
+const growth = window.GAME_CONFIG?.foodGrowth || { red: 2, blue: 8, green: 15 };
 if (apple.type === 'blue') {
   enemy.grow += growth.blue;
 } else if (apple.type === 'green') {
@@ -973,7 +1477,12 @@ offlineGreenTimer = setInterval(() => {
 }, timings.greenAppleSpawn);
 
 offlineEnemyTimer = setInterval(() => {
-  if (mode === 'offline' && !isPaused && !localGameOverShown) {
+  if (
+    mode === 'offline' &&
+    !isPaused &&
+    !localGameOverShown &&
+    selectedLevel !== 6
+  ) {
     spawnEnemy();
     draw();
   }
@@ -1231,6 +1740,14 @@ function resetLocalGame() {
   isPaused = false;
   enemies = [];
   obstacles = createLevelObstacles();
+  // Spawn BOSS in Level 6 only
+if (selectedLevel === 6) {
+  bossSnake = createBossSnake();
+  startBossTimers();
+} else {
+  bossSnake = null;
+  stopBossTimers();
+}
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
@@ -1658,6 +2175,67 @@ function drawSnake(snake, color) {
   ctx.fill();
 }
 
+function drawRemoteBoss() {
+  if (!remoteBoss || !remoteBoss.alive || selectedLevel !== 6) {
+    return;
+  }
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const baseColor = bossConfig.baseColor || '#8b5cf6';
+  const rageColor = bossConfig.rageColor || '#ef4444';
+  const highlightColor = bossConfig.highlightColor || '#ef4444';
+
+  let drawColor = baseColor;
+  if (remoteBoss.rageActive) {
+    const now = Date.now();
+    if (Math.floor(now / 100) % 2 === 0) {
+      drawColor = rageColor;
+    }
+  }
+
+  ctx.strokeStyle = drawColor;
+  ctx.lineWidth = drawSize * 0.85;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+  for (let i = remoteBoss.snake.length - 1; i >= 0; i--) {
+    const segment = remoteBoss.snake[i];
+    const x = segment.x * drawSize + drawSize / 2;
+    const y = segment.y * drawSize + drawSize / 2;
+
+    if (i === remoteBoss.snake.length - 1) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+
+  const head = remoteBoss.snake[0];
+  const hx = head.x * drawSize + drawSize / 2;
+  const hy = head.y * drawSize + drawSize / 2;
+
+  ctx.fillStyle = drawColor;
+  ctx.beginPath();
+  ctx.arc(hx, hy, drawSize * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = highlightColor;
+  ctx.lineWidth = 2;
+  for (let i = 1; i < remoteBoss.snake.length - 1; i++) {
+    const segment = remoteBoss.snake[i];
+    const x = segment.x * drawSize;
+    const y = segment.y * drawSize;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + drawSize, y);
+    ctx.stroke();
+  }
+}
+
+
 function drawApple() {
   for (const apple of food) {
     if (apple.type === 'blue') {
@@ -1710,8 +2288,12 @@ function drawLocal() {
   drawApple();
   drawSnake(localSnake, '#008cff');
 
-  for (const enemy of enemies) {
-    drawSnake(enemy.snake, '#d4af37');
+  if (selectedLevel === 6) {
+    drawBossSnake();
+  } else {
+    for (const enemy of enemies) {
+      drawSnake(enemy.snake, '#d4af37');
+    }
   }
 
   ctx.fillStyle = '#fff';
@@ -1742,6 +2324,10 @@ function drawOnline() {
         player.snake[0].y * size - 5
       );
     }
+  }
+  
+  if (remoteBoss && remoteBoss.alive && selectedLevel === 6) {
+    drawRemoteBoss();
   }
 }
 
@@ -1899,13 +2485,22 @@ function gameLoop() {
   if (mode === 'offline') {
     stepLocal();
 
-    for (const enemy of enemies) {
-      moveEnemy(enemy);
-    }
+    if (selectedLevel === 6) {
+      moveBossSnake();
+      checkBossPlayerCollision();
 
-    enemies = enemies.filter((enemy) =>
-      enemy.alive
-    );
+      if (!bossSnake?.alive) {
+        stopBossTimers();
+      }
+    } else {
+      for (const enemy of enemies) {
+        moveEnemy(enemy);
+      }
+
+      enemies = enemies.filter((enemy) =>
+        enemy.alive
+      );
+    }
   }
 
   draw();

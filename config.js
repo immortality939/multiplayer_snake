@@ -5,7 +5,7 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 3,              // starting snake length
+  initialLength: 30,              // starting snake length
   initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
@@ -61,6 +61,18 @@ const GAME_CONFIG = {
     4: { name: 'The Four Gates', obstacles: 'fourGates' },
     5: { name: 'The Maze Runner', obstacles: 'maze' },
     6: { name: 'BOSS SURVIVAL', obstacles: 'boss' }
+  },
+
+  // BOSS snake settings (Level 6 only)
+  boss: {
+    enabledInLevel: 6,
+    baseSpeedMs: 120,
+    rageSpeedMs: 90,
+    rageIntervalMs: 5000,
+    rageDurationMs: 3000,
+    baseColor: '#8b5cf6',      // violet
+    rageColor: '#ef4444',       // red
+    highlightColor: '#ef4444'   // red highlights on sides
   },
 
   // Audio volumes (0.0 to 1.0)
