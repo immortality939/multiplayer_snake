@@ -254,8 +254,6 @@ function stopFoodTimers(room) {
 
   room.blueTimer = null;
   room.greenTimer = null;
-}
-
 
   // Clean up BOSS rage timer
   const boss = bossState.get(room.name);
@@ -263,6 +261,7 @@ function stopFoodTimers(room) {
     clearInterval(boss.rageTimer);
     boss.rageTimer = null;
   }
+}
 
 function startFoodTimers(room) {
   stopFoodTimers(room);
@@ -335,6 +334,15 @@ function startRoom(room) {
   }
 
   room.started = true;
+resetRoomGame(room);
+
+if (room.level === 6) {
+  bossState.set(room.name, createBossSnakeServer(room));
+} else {
+  bossState.delete(room.name);
+}
+
+startFoodTimers(room);
   resetRoomGame(room);
   startFoodTimers(room);
   
@@ -894,6 +902,7 @@ function gameStep(room) {
 
   if (room.level === 6) {
     moveBossSnakeServer(room);
+    checkBossPlayerCollisionServer(room);
   }
 
   const boss = room.level === 6 ? bossState.get(room.name) : null;
@@ -912,6 +921,50 @@ function gameStep(room) {
   });
 }
 
+function checkBossPlayerCollisionServer(room) {
+  const boss = bossState.get(room.name);
+
+  if (!boss || !boss.alive || room.level !== 6) {
+    return;
+  }
+
+  for (const player of room.players.values()) {
+    if (!player.alive || !player.snake.length) continue;
+
+    for (let i = 0; i < boss.snake.length; i++) {
+      const bossPart = boss.snake[i];
+
+      for (let j = 0; j < player.snake.length; j++) {
+        const playerPart = player.snake[j];
+
+        if (bossPart.x === playerPart.x && bossPart.y === playerPart.y) {
+          if (j === 0) {
+            player.alive = false;
+            return;
+          }
+
+          boss.grow += 2;
+
+          const playerLength = player.snake.length;
+          const ratio = j / playerLength;
+
+          if (ratio < 0.3) {
+            player.alive = false;
+            return;
+          } else if (ratio < 0.7) {
+            player.snake = player.snake.slice(0, Math.ceil(playerLength / 2));
+          } else {
+            if (player.snake.length > 3) {
+              player.snake.pop();
+            }
+          }
+
+          return;
+        }
+      }
+    }
+  }
+}
 function removePlayer(player) {
   const room = getRoom(player.roomName);
 
@@ -922,6 +975,11 @@ function removePlayer(player) {
   room.players.delete(player.id);
 
   if (room.players.size === 0) {
+  stopFoodTimers(room);
+  bossState.delete(room.name);
+  rooms.delete(room.name);
+  return;
+}
     stopFoodTimers(room);
     rooms.delete(room.name);
     return;

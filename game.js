@@ -1804,14 +1804,16 @@ function resetLocalGame() {
   isPaused = false;
   enemies = [];
   obstacles = createLevelObstacles();
-  // Spawn BOSS in Level 6 only
-if (selectedLevel === 6) {
-  bossSnake = createBossSnake();
-  startBossTimers();
-} else {
-  bossSnake = null;
-  stopBossTimers();
-}
+
+  // Spawn BOSS in Level 6 only (single-player)
+  if (selectedLevel === 6) {
+    bossSnake = createBossSnake();
+    startBossTimers();
+  } else {
+    bossSnake = null;
+    stopBossTimers();
+  }
+
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
