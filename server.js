@@ -3,6 +3,8 @@ const http = require('http');
 const path = require('path');
 const WebSocket = require('ws');
 
+const CONFIG = require('./config.js');
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -15,11 +17,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const WIDTH = 72;
-const HEIGHT = 80;
-const SIZE = 5;
-const TICK = 120;
-const MAX_PLAYERS = 4;
+// Use config values
+const WIDTH = CONFIG.grid.width;
+const HEIGHT = CONFIG.grid.height;
+const SIZE = CONFIG.grid.cellSize;
+const TICK = CONFIG.timings.gameLoop;
+const MAX_PLAYERS = CONFIG.multiplayer.maxPlayersPerRoom;
 
 const COLORS = [
   '#ff4d4d',
@@ -55,65 +58,34 @@ function randomFood(type = 'red') {
 
 function createSnake(playerId) {
   const margin = 8;
+  const initialLen = CONFIG.initialLength || 3;
+  const initialPos = CONFIG.initialPosition || { x: 10, y: 5 };
 
   const spawns = {
-    1: {
-      x: margin,
-      y: margin,
-      dir: 'right'
-    },
-
-    2: {
-      x: WIDTH - margin - 1,
-      y: margin,
-      dir: 'down'
-    },
-
-    3: {
-      x: WIDTH - margin - 1,
-      y: HEIGHT - margin - 1,
-      dir: 'left'
-    },
-
-    4: {
-      x: margin,
-      y: HEIGHT - margin - 1,
-      dir: 'up'
-    }
+    1: { x: margin, y: margin, dir: 'right' },
+    2: { x: WIDTH - margin - 1, y: margin, dir: 'down' },
+    3: { x: WIDTH - margin - 1, y: HEIGHT - margin - 1, dir: 'left' },
+    4: { x: margin, y: HEIGHT - margin - 1, dir: 'up' }
   };
 
   const spawn = spawns[((playerId - 1) % 4) + 1];
 
-  if (spawn.dir === 'left') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x + 1, y: spawn.y },
-      { x: spawn.x + 2, y: spawn.y }
-    ];
+  const snake = [];
+  for (let i = 0; i < initialLen; i++) {
+    if (spawn.dir === 'left') {
+      snake.push({ x: spawn.x + i, y: spawn.y });
+    } else if (spawn.dir === 'right') {
+      snake.push({ x: spawn.x - i, y: spawn.y });
+    } else if (spawn.dir === 'down') {
+      snake.push({ x: spawn.x, y: spawn.y - i });
+    } else if (spawn.dir === 'up') {
+      snake.push({ x: spawn.x, y: spawn.y + i });
+    }
   }
 
-  if (spawn.dir === 'right') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x - 1, y: spawn.y },
-      { x: spawn.x - 2, y: spawn.y }
-    ];
-  }
-
-  if (spawn.dir === 'down') {
-    return [
-      { x: spawn.x, y: spawn.y },
-      { x: spawn.x, y: spawn.y - 1 },
-      { x: spawn.x, y: spawn.y - 2 }
-    ];
-  }
-
-  return [
-    { x: spawn.x, y: spawn.y },
-    { x: spawn.x, y: spawn.y + 1 },
-    { x: spawn.x, y: spawn.y + 2 }
-  ];
+  return snake;
 }
+
 function getSpawnDirection(playerId) {
   const directions = {
     1: 'right',
@@ -124,6 +96,7 @@ function getSpawnDirection(playerId) {
 
   return directions[((playerId - 1) % 4) + 1];
 }
+
 function createPlayer(ws, name, host) {
   const id = nextId++;
 
@@ -134,13 +107,13 @@ function createPlayer(ws, name, host) {
     host,
     ready: host,
     color: COLORS[(id - 1) % COLORS.length],
-dir: getSpawnDirection(id),
-nextDir: getSpawnDirection(id),
-alive: true,
-score: 0,
-grow: 0,
-snake: createSnake(id),
-roomName: ''
+    dir: getSpawnDirection(id),
+    nextDir: getSpawnDirection(id),
+    alive: true,
+    score: 0,
+    grow: 0,
+    snake: createSnake(id),
+    roomName: ''
   };
 }
 
@@ -187,10 +160,7 @@ function publicPlayers(room) {
 }
 
 function send(ws, data) {
-  if (
-    ws &&
-    ws.readyState === WebSocket.OPEN
-  ) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
@@ -211,10 +181,7 @@ function broadcastRoom(room, data) {
   const message = JSON.stringify(data);
 
   for (const player of room.players.values()) {
-    if (
-      player.ws &&
-      player.ws.readyState === WebSocket.OPEN
-    ) {
+    if (player.ws && player.ws.readyState === WebSocket.OPEN) {
       player.ws.send(message);
     }
   }
@@ -249,12 +216,7 @@ function allJoinersReady(room) {
 }
 
 function setDirection(player, direction) {
-  const allowed = [
-    'up',
-    'down',
-    'left',
-    'right'
-  ];
+  const allowed = ['up', 'down', 'left', 'right'];
 
   if (!allowed.includes(direction)) {
     return;
@@ -278,7 +240,7 @@ function resetRoomGame(room) {
 
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
-player.nextDir = getSpawnDirection(player.id);
+    player.nextDir = getSpawnDirection(player.id);
     player.alive = true;
     player.score = 0;
     player.grow = 0;
@@ -298,10 +260,7 @@ function startFoodTimers(room) {
   stopFoodTimers(room);
 
   room.blueTimer = setInterval(() => {
-    if (
-      !room.started ||
-      room.paused
-    ) {
+    if (!room.started || room.paused) {
       return;
     }
 
@@ -313,13 +272,10 @@ function startFoodTimers(room) {
       food: room.food,
       paused: room.paused
     });
-  }, 8000);
+  }, CONFIG.timings.blueAppleSpawn);
 
   room.greenTimer = setInterval(() => {
-    if (
-      !room.started ||
-      room.paused
-    ) {
+    if (!room.started || room.paused) {
       return;
     }
 
@@ -331,7 +287,7 @@ function startFoodTimers(room) {
       food: room.food,
       paused: room.paused
     });
-  }, 16000);
+  }, CONFIG.timings.greenAppleSpawn);
 }
 
 function startRoom(room) {
@@ -364,98 +320,45 @@ function createLevelObstacles(level) {
   const middleY = Math.floor(HEIGHT / 2);
   const middleX = Math.floor(WIDTH / 2);
 
-  if (
-    level === 2 ||
-    level === 3
-  ) {
+  if (level === 2 || level === 3) {
     for (let x = 18; x < WIDTH - 18; x++) {
-      result.push({
-        x,
-        y: middleY
-      });
+      result.push({ x, y: middleY });
     }
   }
 
   if (level === 3) {
     for (let y = 10; y < HEIGHT - 10; y++) {
-      result.push({
-        x: middleX,
-        y
-      });
+      result.push({ x: middleX, y });
     }
   }
 
   if (level === 4) {
-    const horizontalGapStart =
-      Math.floor(WIDTH / 2) - 4;
-    const horizontalGapEnd =
-      Math.floor(WIDTH / 2) + 4;
-    const verticalGapStart =
-      Math.floor(HEIGHT / 2) - 4;
-    const verticalGapEnd =
-      Math.floor(HEIGHT / 2) + 4;
+    const horizontalGapStart = Math.floor(WIDTH / 2) - 4;
+    const horizontalGapEnd = Math.floor(WIDTH / 2) + 4;
+    const verticalGapStart = Math.floor(HEIGHT / 2) - 4;
+    const verticalGapEnd = Math.floor(HEIGHT / 2) + 4;
 
     for (let x = 12; x < WIDTH - 12; x++) {
-      if (
-        x < horizontalGapStart ||
-        x > horizontalGapEnd
-      ) {
-        result.push({
-          x,
-          y: middleY - 10
-        });
-
-        result.push({
-          x,
-          y: middleY + 10
-        });
+      if (x < horizontalGapStart || x > horizontalGapEnd) {
+        result.push({ x, y: middleY - 10 });
+        result.push({ x, y: middleY + 10 });
       }
     }
 
     for (let y = 12; y < HEIGHT - 12; y++) {
-      if (
-        y < verticalGapStart ||
-        y > verticalGapEnd
-      ) {
-        result.push({
-          x: middleX - 14,
-          y
-        });
-
-        result.push({
-          x: middleX + 14,
-          y
-        });
+      if (y < verticalGapStart || y > verticalGapEnd) {
+        result.push({ x: middleX - 14, y });
+        result.push({ x: middleX + 14, y });
       }
     }
   }
 
   if (level === 5) {
     const rows = [
-      {
-        y: 15,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 30,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      },
-      {
-        y: 45,
-        start: 12,
-        end: WIDTH - 14,
-        openingSide: 'right'
-      },
-      {
-        y: 60,
-        start: 14,
-        end: WIDTH - 12,
-        openingSide: 'left'
-      }
+      { y: 15, start: 12, end: WIDTH - 14, openingSide: 'right' },
+      { y: 30, start: 14, end: WIDTH - 12, openingSide: 'left' },
+      { y: 45, start: 12, end: WIDTH - 14, openingSide: 'right' },
+      { y: 60, start: 14, end: WIDTH - 12, openingSide: 'left' }
     ];
 
     for (const row of rows) {
@@ -466,10 +369,7 @@ function createLevelObstacles(level) {
             : x > row.end - 8;
 
         if (!hasOpening) {
-          result.push({
-            x,
-            y: row.y
-          });
+          result.push({ x, y: row.y });
         }
       }
     }
@@ -511,12 +411,7 @@ function createLevelObstacles(level) {
             x >= x1 + 3 &&
             x <= x2 - 3;
 
-          if (
-            openLeft ||
-            openRight ||
-            openTop ||
-            openBottom
-          ) {
+          if (openLeft || openRight || openTop || openBottom) {
             continue;
           }
 
@@ -568,10 +463,7 @@ function movePlayer(room, player) {
     right: 'left'
   };
 
-  if (
-    player.nextDir &&
-    player.nextDir !== opposite[player.dir]
-  ) {
+  if (player.nextDir && player.nextDir !== opposite[player.dir]) {
     player.dir = player.nextDir;
   }
 
@@ -590,8 +482,7 @@ function movePlayer(room, player) {
     head.y < 0 ||
     head.y >= HEIGHT;
 
-  const levelObstacles =
-    createLevelObstacles(room.level || 1);
+  const levelObstacles = createLevelObstacles(room.level || 1);
 
   const hitsObstacle = levelObstacles.some((block) =>
     block.x === head.x &&
@@ -617,12 +508,7 @@ function movePlayer(room, player) {
       )
     );
 
-  if (
-    outside ||
-    hitsObstacle ||
-    hitsSelf ||
-    hitsOther
-  ) {
+  if (outside || hitsObstacle || hitsSelf || hitsOther) {
     player.alive = false;
     return;
   }
@@ -639,12 +525,13 @@ function movePlayer(room, player) {
 
     player.score++;
 
+    const growth = CONFIG.foodGrowth || { red: 2, blue: 8, green: 15 };
     if (eatenApple.type === 'blue') {
-      player.grow += 8;
+      player.grow += growth.blue;
     } else if (eatenApple.type === 'green') {
-      player.grow += 15;
+      player.grow += growth.green;
     } else {
-      player.grow += 2;
+      player.grow += growth.red;
     }
 
     if (eatenApple.type === 'red') {
@@ -662,10 +549,7 @@ function movePlayer(room, player) {
 }
 
 function gameStep(room) {
-  if (
-    !room.started ||
-    room.paused
-  ) {
+  if (!room.started || room.paused) {
     return;
   }
 
@@ -698,21 +582,20 @@ function removePlayer(player) {
   }
 
   if (room.hostId === player.id) {
-  const newHost =
-    room.players.values().next().value;
+    const newHost = room.players.values().next().value;
 
-  if (newHost) {
-    room.hostId = newHost.id;
+    if (newHost) {
+      room.hostId = newHost.id;
 
-    for (const other of room.players.values()) {
-      other.host = other.id === room.hostId;
+      for (const other of room.players.values()) {
+        other.host = other.id === room.hostId;
 
-      if (other.host) {
-        other.ready = true;
+        if (other.host) {
+          other.ready = true;
+        }
       }
     }
   }
-}
 
   broadcastRoomState(room);
 }
@@ -744,10 +627,7 @@ wss.on('connection', (ws) => {
     }
 
     try {
-      if (
-        !data ||
-        typeof data.type !== 'string'
-      ) {
+      if (!data || typeof data.type !== 'string') {
         send(ws, {
           type: 'error',
           message: 'Message type is required.'
@@ -840,15 +720,12 @@ wss.on('connection', (ws) => {
         broadcastRoomState(room);
         return;
       }
+
       if (data.type === 'selectLevel') {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          room.started ||
-          !player.host
-        ) {
+        if (!room || room.started || !player.host) {
           return;
         }
 
@@ -862,14 +739,12 @@ wss.on('connection', (ws) => {
         broadcastRoomState(room);
         return;
       }
+
       if (data.type === 'ready') {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          player.host
-        ) {
+        if (!room || player.host) {
           return;
         }
 
@@ -882,10 +757,7 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          !player.host
-        ) {
+        if (!room || !player.host) {
           return;
         }
 
@@ -906,11 +778,7 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          !room.started ||
-          !player.host
-        ) {
+        if (!room || !room.started || !player.host) {
           return;
         }
 
@@ -930,11 +798,7 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          !room.started ||
-          !player.host
-        ) {
+        if (!room || !room.started || !player.host) {
           return;
         }
 
@@ -955,11 +819,7 @@ wss.on('connection', (ws) => {
         const player = client.player;
         const room = player && getRoom(player.roomName);
 
-        if (
-          !room ||
-          !room.started ||
-          room.paused
-        ) {
+        if (!room || !room.started || room.paused) {
           return;
         }
 
