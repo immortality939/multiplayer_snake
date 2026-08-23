@@ -362,11 +362,12 @@ function handleServerMessage(data) {
   }
   
   if (data.type === 'bossDied') {
-  remoteBoss = null;
-  // Optional: show a "BOSS DEFEATED" message here
-}
+    remoteBoss = null;
+    // Optional: show a "BOSS DEFEATED" message here
+    return;
+  }
 
-    if (data.type === 'state') {
+  if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
