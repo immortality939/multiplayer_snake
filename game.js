@@ -387,6 +387,7 @@ function handleServerMessage(data) {
     setStatus(isPaused ? 'Paused' : 'Connected');
     draw();
   }
+}
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';
