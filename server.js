@@ -882,7 +882,6 @@ function movePlayer(room, player) {
   }
 }
 
-  console.log('gameStep boss:', room.name, room.level, boss ? 'ALIVE' : 'NO BOSS');
 
 function gameStep(room) {
   if (!room.started || room.paused) {

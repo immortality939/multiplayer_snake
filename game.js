@@ -326,7 +326,7 @@ function handleServerMessage(data) {
     return;
   }
 
-    if (data.type === 'gameStart') {
+  if (data.type === 'gameStart') {
     mode = 'online';
     isPaused = Boolean(data.paused);
 
@@ -336,16 +336,16 @@ function handleServerMessage(data) {
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
-    
-      if (data.boss && data.boss.snake) {
-    remoteBoss = {
-      snake: data.boss.snake,
-      alive: data.boss.alive,
-      rageActive: data.boss.rageActive
-    };
-  } else {
-    remoteBoss = null;
-  }
+
+    if (data.boss && data.boss.snake) {
+      remoteBoss = {
+        snake: data.boss.snake,
+        alive: data.boss.alive,
+        rageActive: data.boss.rageActive
+      };
+    } else {
+      remoteBoss = null;
+    }
 
     gridWidth = data.width || gridWidth;
     gridHeight = data.height || gridHeight;
@@ -366,26 +366,26 @@ function handleServerMessage(data) {
   // Optional: show a "BOSS DEFEATED" message here
 }
 
-  if (data.type === 'state') {
+    if (data.type === 'state') {
     mode = 'online';
     isPaused = Boolean(data.paused);
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
-  console.log('state boss data:', data.boss ? 'RECEIVED' : 'NULL', 'remoteBoss:', remoteBoss ? 'SET' : 'NULL', 'level:', selectedLevel);
-  if (data.boss && data.boss.snake) {
-    remoteBoss = {
-      snake: data.boss.snake,
-      alive: data.boss.alive,
-      rageActive: data.boss.rageActive
-    };
-  } else {
-    remoteBoss = null;
-  }
+
+    if (data.boss && data.boss.snake) {
+      remoteBoss = {
+        snake: data.boss.snake,
+        alive: data.boss.alive,
+        rageActive: data.boss.rageActive
+      };
+    } else {
+      remoteBoss = null;
+    }
+
     updatePauseButton();
     setStatus(isPaused ? 'Paused' : 'Connected');
     draw();
   }
-}
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';
@@ -2387,9 +2387,7 @@ function drawOnline() {
       );
     }
   }
-  
-    console.log('drawOnline remoteBoss:', remoteBoss ? 'EXISTS' : 'NULL', 'alive:', remoteBoss?.alive, 'level:', selectedLevel);
-  
+
   if (remoteBoss && remoteBoss.alive && selectedLevel === 6) {
     drawRemoteBoss();
   }
