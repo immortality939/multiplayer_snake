@@ -34,7 +34,7 @@ const SNAKE_CONFIG = {
   // Timings (milliseconds)
   timings: {
     gameLoop: 120,
-    blueAppleSpawn: 8000,
+    blueAppleSpawn: 80,
     greenAppleSpawn: 16000,
     enemySpawn: 20000
   },
