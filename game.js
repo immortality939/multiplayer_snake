@@ -1034,6 +1034,67 @@ function checkBossPlayerCollision() {
   }
 }
 
+function drawRemoteBoss() {
+  if (!remoteBoss || !remoteBoss.alive || selectedLevel !== 6) {
+    return;
+  }
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const baseColor = bossConfig.baseColor || '#8b5cf6';
+  const rageColor = bossConfig.rageColor || '#ef4444';
+  const highlightColor = bossConfig.highlightColor || '#ef4444';
+
+  let drawColor = baseColor;
+  if (remoteBoss.rageActive) {
+    const now = Date.now();
+    if (Math.floor(now / 100) % 2 === 0) {
+      drawColor = rageColor;
+    }
+  }
+
+  ctx.strokeStyle = drawColor;
+  ctx.lineWidth = drawSize * 0.85;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  ctx.beginPath();
+  for (let i = remoteBoss.snake.length - 1; i >= 0; i--) {
+    const segment = remoteBoss.snake[i];
+    const x = segment.x * drawSize + drawSize / 2;
+    const y = segment.y * drawSize + drawSize / 2;
+
+    if (i === remoteBoss.snake.length - 1) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+
+  const head = remoteBoss.snake[0];
+  const hx = head.x * drawSize + drawSize / 2;
+  const hy = head.y * drawSize + drawSize / 2;
+
+  ctx.fillStyle = drawColor;
+  ctx.beginPath();
+  ctx.arc(hx, hy, drawSize * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = highlightColor;
+  ctx.lineWidth = 2;
+  for (let i = 1; i < remoteBoss.snake.length - 1; i++) {
+    const segment = remoteBoss.snake[i];
+    const x = segment.x * drawSize;
+    const y = segment.y * drawSize;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + drawSize, y);
+    ctx.stroke();
+  }
+}
+
+
 function drawBossSnake() {
   if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
     return;
