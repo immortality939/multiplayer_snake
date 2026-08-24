@@ -4,7 +4,12 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const CONFIG = require('./config.js');
-
+console.log('SERVER CONFIG LOADED', {
+  gameLoop: CONFIG.timings.gameLoop,
+  bossSpeed: CONFIG.boss.baseSpeedMs,
+  bossLength: CONFIG.boss.initialLength,
+  bossColor: CONFIG.boss.baseColor
+});
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -58,7 +63,11 @@ function randomFood(type = 'red') {
 
 function createSnake(playerId) {
   const margin = 8;
-  const initialLen = CONFIG.initialLength || 3;
+  const initialLen = Number.isFinite(
+    bossConfig.initialLength
+  )
+    ? bossConfig.initialLength
+    : 3;
   const initialPos = CONFIG.initialPosition || { x: 10, y: 5 };
 
   const spawns = {
@@ -364,11 +373,15 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss || {};
-  const baseSpeed = bossConfig.baseSpeedMs || 120;
+  const baseSpeed = Number.isFinite(
+    bossConfig.baseSpeedMs
+  )
+    ? bossConfig.baseSpeedMs
+    : 120;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = Math.floor(HEIGHT / 2);
-  const initialLen = 20;
+ 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {

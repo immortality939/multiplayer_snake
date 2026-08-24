@@ -66,11 +66,10 @@ const GAME_CONFIG = {
   // BOSS snake settings (Level 6 only)
   boss: {
     enabledInLevel: 6,
-    baseSpeedMs: 20,
-    rageSpeedMs: 20,
-    initialLength: 10,
-    rageIntervalMs: 15000,
-    rageDurationMs: 10000,
+    baseSpeedMs: 120,
+    rageSpeedMs: 90,
+    rageIntervalMs: 5000,
+    rageDurationMs: 3000,
     baseColor: '#8b5cf6',      // violet
     rageColor: '#ef4444',       // red
     highlightColor: '#ef4444'   // red highlights on sides
@@ -87,6 +86,13 @@ const GAME_CONFIG = {
 // For browser: expose globally
 if (typeof window !== 'undefined') {
   window.GAME_CONFIG = GAME_CONFIG;
+
+  console.log('BROWSER CONFIG LOADED', {
+    gameLoop: GAME_CONFIG.timings.gameLoop,
+    bossSpeed: GAME_CONFIG.boss.baseSpeedMs,
+    bossLength: GAME_CONFIG.boss.initialLength,
+    bossColor: GAME_CONFIG.boss.baseColor
+  });
 }
 
 // For Node.js (server): export

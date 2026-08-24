@@ -664,15 +664,22 @@ function spawnEnemy() {
 
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
-  const baseSpeed = bossConfig.baseSpeedMs || 120;
+  const baseSpeed = Number.isFinite(
+  bossConfig.baseSpeedMs
+)
+  ? bossConfig.baseSpeedMs
+  : 120;
 
   // Spawn in middle of board
   const startX = Math.floor(gridWidth / 2);
   const startY = Math.floor(gridHeight / 2);
 
   // Initial length
-    const initialLen =
-    bossConfig.initialLength || 20;
+    const initialLen = Number.isFinite(
+  bossConfig.initialLength
+)
+  ? bossConfig.initialLength
+  : 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
@@ -2581,5 +2588,10 @@ connectSocket();
 canvas.width = 360;
 canvas.height = 400;
 
-const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 120;
+const gameSpeed = Number.isFinite(
+  window.GAME_CONFIG?.timings?.gameLoop
+)
+  ? window.GAME_CONFIG.timings.gameLoop
+  : 120;
+
 setInterval(gameLoop, gameSpeed);
