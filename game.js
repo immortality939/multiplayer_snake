@@ -664,58 +664,33 @@ function spawnEnemy() {
 
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
+  const baseSpeed = bossConfig.baseSpeedMs || 120;
 
-  const baseSpeed = Number.isFinite(bossConfig.baseSpeedMs)
-    ? bossConfig.baseSpeedMs
-    : 120;
+  // Spawn in middle of board
+  const startX = Math.floor(gridWidth / 2);
+  const startY = Math.floor(gridHeight / 2);
 
-  const initialLen = Number.isFinite(bossConfig.initialLength)
-    ? bossConfig.initialLength
-    : 20;
-
-  const safePositions = [
-    { x: 10, y: 10 },
-    { x: gridWidth - 11, y: 10 },
-    { x: 10, y: gridHeight - 11 },
-    { x: gridWidth - 11, y: gridHeight - 11 }
-  ];
-
-  let spawn = safePositions[0];
-
-  for (const position of safePositions) {
-    const blocked = obstacles.some((block) =>
-      block.x === position.x &&
-      block.y === position.y
-    );
-
-    if (!blocked) {
-      spawn = position;
-      break;
-    }
-  }
+  // Initial length
+  const initialLen = 20;
 
   const snake = [];
-
   for (let i = 0; i < initialLen; i++) {
-    snake.push({
-      x: spawn.x - i,
-      y: spawn.y
-    });
+    snake.push({ x: startX - i, y: startY });
   }
 
-  return {
-    snake,
-    dir: 'right',
-    nextDir: 'right',
-    alive: true,
-    grow: 0,
-    score: 0,
-    baseSpeed,
-    currentSpeed: baseSpeed,
-    lastMoveTime: 0,
-    rageActive: false,
-    patrolTarget: getRandomPatrolTarget()
-  };
+return {
+  snake,
+  dir: 'right',
+  nextDir: 'right',
+  alive: true,
+  grow: 0,
+  score: 0,
+  baseSpeed,
+  currentSpeed: baseSpeed,
+  lastMoveTime: 0,
+  rageActive: false,
+  patrolTarget: getRandomPatrolTarget()
+};
 }
 function startBossTimers() {
   stopBossTimers();
@@ -2266,6 +2241,12 @@ function drawSnake(snake, color) {
   ctx.fill();
 }
 
+function drawRemoteBoss() {
+  if (!remoteBoss || !remoteBoss.alive || selectedLevel !== 6) {
+    return;
+  }
+
+  const bossConfig = window.GAME_CONFIG?.boss || {};
   const baseColor = bossConfig.baseColor || '#8b5cf6';
   const rageColor = bossConfig.rageColor || '#ef4444';
   const highlightColor = bossConfig.highlightColor || '#ef4444';
@@ -2599,10 +2580,5 @@ connectSocket();
 canvas.width = 360;
 canvas.height = 400;
 
-const gameSpeed = Number.isFinite(
-  window.GAME_CONFIG?.timings?.gameLoop
-)
-  ? window.GAME_CONFIG.timings.gameLoop
-  : 120;
-
+const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 120;
 setInterval(gameLoop, gameSpeed);

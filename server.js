@@ -4,12 +4,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const CONFIG = require('./config.js');
-console.log('SERVER CONFIG LOADED', {
-  gameLoop: CONFIG.timings.gameLoop,
-  bossSpeed: CONFIG.boss.baseSpeedMs,
-  bossLength: CONFIG.boss.initialLength,
-  bossColor: CONFIG.boss.baseColor
-});
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -63,10 +58,7 @@ function randomFood(type = 'red') {
 
 function createSnake(playerId) {
   const margin = 8;
-  const initialLen = Number.isFinite(CONFIG.initialLength)
-  ? CONFIG.initialLength
-  : 3;
-  const initialPos = CONFIG.initialPosition || { x: 10, y: 5 };
+  const initialLen = CONFIG.initialLength || 3;
 
   const spawns = {
     1: { x: margin, y: margin, dir: 'right' },
@@ -245,12 +237,6 @@ function resetRoomGame(room) {
   room.food = [randomFood('red')];
   room.paused = false;
 
-  if (room.level === 6) {
-    bossState.set(room.name, createBossSnakeServer(room));
-  } else {
-    bossState.delete(room.name);
-  }
-
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
     player.nextDir = getSpawnDirection(player.id);
@@ -347,19 +333,16 @@ function startRoom(room) {
   }
 
   room.started = true;
-
+  resetRoomGame(room);
+  startFoodTimers(room);
+  
   if (room.level === 6) {
     bossState.set(room.name, createBossSnakeServer(room));
   } else {
     bossState.delete(room.name);
   }
 
-  resetRoomGame(room);
-  startFoodTimers(room);
-
-  const boss = room.level === 6
-    ? bossState.get(room.name)
-    : null;
+  const boss = room.level === 6 ? bossState.get(room.name) : null;
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -380,25 +363,15 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss || {};
-
-  const baseSpeed = Number.isFinite(bossConfig.baseSpeedMs)
-    ? bossConfig.baseSpeedMs
-    : 120;
-
-  const initialLen = Number.isFinite(bossConfig.initialLength)
-    ? bossConfig.initialLength
-    : 20;
+  const baseSpeed = bossConfig.baseSpeedMs || 120;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = Math.floor(HEIGHT / 2);
+  const initialLen = 20;
 
   const snake = [];
-
   for (let i = 0; i < initialLen; i++) {
-    snake.push({
-      x: startX - i,
-      y: startY
-    });
+    snake.push({ x: startX - i, y: startY });
   }
 
   return {
@@ -674,71 +647,7 @@ function moveBossSnakeServer(room) {
   }
 }
 
-function checkBossPlayerCollisionsServer(room) {
-  if (room.level !== 6) {
-    return;
-  }
-
-  const boss = bossState.get(room.name);
-
-  if (!boss || !boss.alive || !boss.snake.length) {
-    return;
-  }
-
-  for (const player of room.players.values()) {
-    if (!player.alive || !player.snake || !player.snake.length) {
-      continue;
-    }
-
-    const bossSegments = boss.snake;
-    const playerSegments = player.snake;
-
-    for (let bossIndex = 0; bossIndex < bossSegments.length; bossIndex++) {
-      const bossPart = bossSegments[bossIndex];
-
-      for (let playerIndex = 0; playerIndex < playerSegments.length; playerIndex++) {
-        const playerPart = playerSegments[playerIndex];
-
-        if (
-          bossPart.x !== playerPart.x ||
-          bossPart.y !== playerPart.y
-        ) {
-          continue;
-        }
-
-        // Boss touched the player's head.
-        if (playerIndex === 0) {
-          player.alive = false;
-          player.snake = [];
-        } else {
-          const playerLength = player.snake.length;
-          const bitePositionRatio = playerIndex / playerLength;
-
-          boss.grow += 2;
-
-          if (bitePositionRatio < 0.3) {
-            player.alive = false;
-            player.snake = [];
-          } else if (bitePositionRatio < 0.7) {
-            // Remove bitten segment and everything behind it.
-            player.snake = player.snake.slice(
-              0,
-              Math.max(1, playerIndex)
-            );
-          } else {
-            // Tail bite.
-            if (player.snake.length > 3) {
-              player.snake.pop();
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-
-function createLevelObstacles(level) {
+function createLevelObstaclesForLevel(level) {
   const result = [];
   const middleY = Math.floor(HEIGHT / 2);
   const middleX = Math.floor(WIDTH / 2);
@@ -905,7 +814,7 @@ function movePlayer(room, player) {
     head.y < 0 ||
     head.y >= HEIGHT;
 
-  const levelObstacles = createLevelObstacles(room.level || 1);
+  const levelObstacles = createLevelObstaclesForLevel(room.level || 1);
 
   const hitsObstacle = levelObstacles.some((block) =>
     block.x === head.x &&
@@ -982,9 +891,8 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-  moveBossSnakeServer(room);
-  checkBossPlayerCollisionsServer(room);
-}
+    moveBossSnakeServer(room);
+  }
 
   const boss = room.level === 6 ? bossState.get(room.name) : null;
 
@@ -1013,6 +921,7 @@ function removePlayer(player) {
 
   if (room.players.size === 0) {
     stopFoodTimers(room);
+    bossState.delete(room.name);
     rooms.delete(room.name);
     return;
   }
@@ -1220,23 +1129,11 @@ wss.on('connection', (ws) => {
 
         room.paused = !room.paused;
 
-        const boss = room.level === 6
-          ? bossState.get(room.name)
-          : null;
-
         broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused,
-          level: room.level,
-          boss: boss
-            ? {
-                snake: boss.snake,
-                alive: boss.alive,
-                rageActive: boss.rageActive
-              }
-            : null
+          paused: room.paused
         });
 
         return;
@@ -1251,25 +1148,14 @@ wss.on('connection', (ws) => {
         }
 
         resetRoomGame(room);
+        bossState.delete(room.name);
         startFoodTimers(room);
-
-        const boss = room.level === 6
-          ? bossState.get(room.name)
-          : null;
 
         broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused,
-          level: room.level,
-          boss: boss
-            ? {
-                snake: boss.snake,
-                alive: boss.alive,
-                rageActive: boss.rageActive
-              }
-            : null
+          paused: room.paused
         });
 
         return;
