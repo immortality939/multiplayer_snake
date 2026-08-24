@@ -671,7 +671,8 @@ function createBossSnake() {
   const startY = Math.floor(gridHeight / 2);
 
   // Initial length
-  const initialLen = 20;
+    const initialLen =
+    bossConfig.initialLength || 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
