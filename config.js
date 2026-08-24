@@ -5,11 +5,11 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 30,
-  initialPosition: { x: 10, y: 5 },
+  initialLength: 30,              // starting snake length
+  initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
-  speedMs: 10,
+  speedMs: 120,                   // game loop interval in milliseconds (lower = faster)
 
   // Grid & board
   grid: {
@@ -19,7 +19,7 @@ const GAME_CONFIG = {
     drawSize: 5
   },
 
-  // Colors
+  // Colors (hex)
   colors: {
     snakeBlue: '#008cff',
     snakeEnemy: '#d4af37',
@@ -31,7 +31,7 @@ const GAME_CONFIG = {
     text: '#fff'
   },
 
-  // Timings
+  // Timings (milliseconds)
   timings: {
     gameLoop: 120,
     blueAppleSpawn: 8000,
@@ -53,7 +53,7 @@ const GAME_CONFIG = {
     maxNameLength: 18
   },
 
-  // Levels
+  // Levels (1–6)
   levels: {
     1: { name: 'Plain board', obstacles: 'none' },
     2: { name: 'Middle block', obstacles: 'horizontal' },
@@ -63,20 +63,18 @@ const GAME_CONFIG = {
     6: { name: 'BOSS SURVIVAL', obstacles: 'boss' }
   },
 
-  // BOSS snake settings
+  // BOSS snake settings (Level 6 only)
   boss: {
-    enabledInLevel: 6,
-    length: 30,
-    baseSpeedMs: 120,
+    enabledInLevel: 5,
     rageSpeedMs: 90,
     rageIntervalMs: 5000,
     rageDurationMs: 3000,
-    baseColor: '#8b5cf6',
-    rageColor: '#ef4444',
-    highlightColor: '#ef4444'
+    baseColor: '#8b5cf6',      // violet
+    rageColor: '#ef4444',       // red
+    highlightColor: '#ef4444'   // red highlights on sides
   },
 
-  // Audio volumes
+  // Audio volumes (0.0 to 1.0)
   audio: {
     introVolume: 0.35,
     bgVolume: 0.35,
@@ -84,12 +82,12 @@ const GAME_CONFIG = {
   }
 };
 
-// For browser
+// For browser: expose globally
 if (typeof window !== 'undefined') {
   window.GAME_CONFIG = GAME_CONFIG;
 }
 
-// For Node.js server
+// For Node.js (server): export
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = GAME_CONFIG;
 }

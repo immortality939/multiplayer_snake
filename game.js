@@ -664,35 +664,33 @@ function spawnEnemy() {
 
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
-
   const baseSpeed = bossConfig.baseSpeedMs || 120;
-  const initialLen = bossConfig.length || 20;
 
+  // Spawn in middle of board
   const startX = Math.floor(gridWidth / 2);
   const startY = Math.floor(gridHeight / 2);
 
-  const snake = [];
+  // Initial length
+  const initialLen = 20;
 
+  const snake = [];
   for (let i = 0; i < initialLen; i++) {
-    snake.push({
-      x: startX - i,
-      y: startY
-    });
+    snake.push({ x: startX - i, y: startY });
   }
 
-  return {
-    snake,
-    dir: 'right',
-    nextDir: 'right',
-    alive: true,
-    grow: 0,
-    score: 0,
-    baseSpeed,
-    currentSpeed: baseSpeed,
-    lastMoveTime: Date.now(),
-    rageActive: false,
-    patrolTarget: getRandomPatrolTarget()
-  };
+return {
+  snake,
+  dir: 'right',
+  nextDir: 'right',
+  alive: true,
+  grow: 0,
+  score: 0,
+  baseSpeed,
+  currentSpeed: baseSpeed,
+  lastMoveTime: 0,
+  rageActive: false,
+  patrolTarget: getRandomPatrolTarget()
+};
 }
 function startBossTimers() {
   stopBossTimers();
