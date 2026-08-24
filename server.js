@@ -4,6 +4,20 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const CONFIG = require('./config.js');
+// Config validation – will crash server if boss config is wrong
+if (!CONFIG.boss || typeof CONFIG.boss.baseSpeedMs !== 'number') {
+  throw new Error(
+    'Invalid config: CONFIG.boss.baseSpeedMs must be a number. Current value: ' +
+    JSON.stringify(CONFIG.boss)
+  );
+}
+
+if (typeof CONFIG.timings?.gameLoop !== 'number') {
+  throw new Error(
+    'Invalid config: CONFIG.timings.gameLoop must be a number. Current value: ' +
+    JSON.stringify(CONFIG.timings)
+  );
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -275,9 +289,9 @@ function startFoodTimers(room) {
     const boss = bossState.get(room.name);
 
     if (boss) {
-      const bossConfig = CONFIG.boss || {};
-      const baseSpeed = bossConfig.baseSpeedMs || 120;
-      const rageSpeed = bossConfig.rageSpeedMs || 90;
+      const bossConfig = CONFIG.boss;
+const baseSpeed = bossConfig.baseSpeedMs; // no fallback
+const rageSpeed = bossConfig.rageSpeedMs; // no fallback
       const rageInterval = bossConfig.rageIntervalMs || 5000;
       const rageDuration = bossConfig.rageDurationMs || 3000;
 
@@ -401,8 +415,8 @@ function startRoom(room) {
 }
 
 function createBossSnakeServer(room) {
-  const bossConfig = CONFIG.boss || {};
-  const baseSpeed = bossConfig.baseSpeedMs || 120;
+  const bossConfig = CONFIG.boss;
+  const baseSpeed = bossConfig.baseSpeedMs; // no fallback
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
