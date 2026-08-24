@@ -66,13 +66,14 @@ const GAME_CONFIG = {
   // BOSS snake settings (Level 6 only)
   boss: {
     enabledInLevel: 6,
-    baseSpeedMs: 10,
-    rageSpeedMs: 90,
-    rageIntervalMs: 5000,
-    rageDurationMs: 3000,
-    baseColor: '#8b5cf6',      // violet
-    rageColor: '#ef4444',       // red
-    highlightColor: '#ef4444'   // red highlights on sides
+    initialLength: 20,
+    baseSpeedMs: 100,
+  rageSpeedMs: 90,
+  rageIntervalMs: 5000,
+  rageDurationMs: 3000,
+  baseColor: '#8b5cf6',
+  rageColor: '#ef4444',
+  highlightColor: '#ef4444'
   },
 
   // Audio volumes (0.0 to 1.0)

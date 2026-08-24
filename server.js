@@ -63,11 +63,9 @@ function randomFood(type = 'red') {
 
 function createSnake(playerId) {
   const margin = 8;
-  const initialLen = Number.isFinite(
-    bossConfig.initialLength
-  )
-    ? bossConfig.initialLength
-    : 3;
+  const initialLen = Number.isFinite(CONFIG.initialLength)
+  ? CONFIG.initialLength
+  : 3;
   const initialPos = CONFIG.initialPosition || { x: 10, y: 5 };
 
   const spawns = {
@@ -247,6 +245,12 @@ function resetRoomGame(room) {
   room.food = [randomFood('red')];
   room.paused = false;
 
+  if (room.level === 6) {
+    bossState.set(room.name, createBossSnakeServer(room));
+  } else {
+    bossState.delete(room.name);
+  }
+
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
     player.nextDir = getSpawnDirection(player.id);
@@ -343,16 +347,19 @@ function startRoom(room) {
   }
 
   room.started = true;
-  resetRoomGame(room);
-  startFoodTimers(room);
-  
+
   if (room.level === 6) {
     bossState.set(room.name, createBossSnakeServer(room));
   } else {
     bossState.delete(room.name);
   }
 
-  const boss = room.level === 6 ? bossState.get(room.name) : null;
+  resetRoomGame(room);
+  startFoodTimers(room);
+
+  const boss = room.level === 6
+    ? bossState.get(room.name)
+    : null;
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -373,19 +380,25 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss || {};
-  const baseSpeed = Number.isFinite(
-    bossConfig.baseSpeedMs
-  )
+
+  const baseSpeed = Number.isFinite(bossConfig.baseSpeedMs)
     ? bossConfig.baseSpeedMs
     : 120;
 
+  const initialLen = Number.isFinite(bossConfig.initialLength)
+    ? bossConfig.initialLength
+    : 20;
+
   const startX = Math.floor(WIDTH / 2);
   const startY = Math.floor(HEIGHT / 2);
- 20;
 
   const snake = [];
+
   for (let i = 0; i < initialLen; i++) {
-    snake.push({ x: startX - i, y: startY });
+    snake.push({
+      x: startX - i,
+      y: startY
+    });
   }
 
   return {
@@ -695,27 +708,31 @@ function checkBossPlayerCollisionsServer(room) {
 
         // Boss touched the player's head.
         if (playerIndex === 0) {
-  player.alive = false;
-  player.snake = [];
-} else {
-  const playerLength = player.snake.length;
-  const bitePositionRatio = playerIndex / playerLength;
+          player.alive = false;
+          player.snake = [];
+        } else {
+          const playerLength = player.snake.length;
+          const bitePositionRatio = playerIndex / playerLength;
 
-  boss.grow += 2;
+          boss.grow += 2;
 
-  if (bitePositionRatio < 0.3) {
-    player.alive = false;
-    player.snake = [];
-  } else if (bitePositionRatio < 0.7) {
-    // Remove bitten segment and everything behind it.
-    player.snake = player.snake.slice(
-      0,
-      Math.max(1, playerIndex)
-    );
-  } else {
-    // Tail bite.
-    if (player.snake.length > 3) {
-      player.snake.pop();
+          if (bitePositionRatio < 0.3) {
+            player.alive = false;
+            player.snake = [];
+          } else if (bitePositionRatio < 0.7) {
+            // Remove bitten segment and everything behind it.
+            player.snake = player.snake.slice(
+              0,
+              Math.max(1, playerIndex)
+            );
+          } else {
+            // Tail bite.
+            if (player.snake.length > 3) {
+              player.snake.pop();
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -1203,11 +1220,23 @@ wss.on('connection', (ws) => {
 
         room.paused = !room.paused;
 
+        const boss = room.level === 6
+          ? bossState.get(room.name)
+          : null;
+
         broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+          level: room.level,
+          boss: boss
+            ? {
+                snake: boss.snake,
+                alive: boss.alive,
+                rageActive: boss.rageActive
+              }
+            : null
         });
 
         return;
@@ -1224,11 +1253,23 @@ wss.on('connection', (ws) => {
         resetRoomGame(room);
         startFoodTimers(room);
 
+        const boss = room.level === 6
+          ? bossState.get(room.name)
+          : null;
+
         broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+          level: room.level,
+          boss: boss
+            ? {
+                snake: boss.snake,
+                alive: boss.alive,
+                rageActive: boss.rageActive
+              }
+            : null
         });
 
         return;
