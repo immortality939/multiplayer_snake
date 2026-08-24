@@ -1048,10 +1048,15 @@ function drawRemoteBoss() {
   const highlightColor = bossConfig.highlightColor || '#ef4444';
 
   let drawColor = baseColor;
+
+  // Blink color during rage
   if (remoteBoss.rageActive) {
     const now = Date.now();
+    // Toggle every 100ms → 10 times per second
     if (Math.floor(now / 100) % 2 === 0) {
       drawColor = rageColor;
+    } else {
+      drawColor = baseColor;
     }
   }
 

@@ -276,9 +276,10 @@ function startFoodTimers(room) {
 
     if (boss) {
       const bossConfig = CONFIG.boss || {};
+      const baseSpeed = bossConfig.baseSpeedMs || 120;
+      const rageSpeed = bossConfig.rageSpeedMs || 90;
       const rageInterval = bossConfig.rageIntervalMs || 5000;
       const rageDuration = bossConfig.rageDurationMs || 3000;
-      const rageSpeed = bossConfig.rageSpeedMs || 90;
 
       if (boss.rageTimer) clearInterval(boss.rageTimer);
 
@@ -292,7 +293,7 @@ function startFoodTimers(room) {
           if (!boss.alive) return;
 
           boss.rageActive = false;
-          boss.currentSpeed = boss.baseSpeed;
+          boss.currentSpeed = baseSpeed;
         }, rageDuration);
       }, rageInterval);
     }
@@ -582,58 +583,45 @@ function checkBossPlayerCollision(room) {
     return;
   }
 
-  const bossHead = boss.snake[0];
+  // Check every boss segment against every player segment
+  for (const bossPart of boss.snake) {
+    for (const player of room.players.values()) {
+      if (!player.alive || !player.snake || !player.snake.length) {
+        continue;
+      }
 
-  for (const player of room.players.values()) {
+      let hitIndex = -1;
 
-    if (!player.alive || !player.snake.length) {
-      continue;
-    }
+      for (let i = 0; i < player.snake.length; i++) {
+        const part = player.snake[i];
 
-    let hitIndex = -1;
+        if (part.x === bossPart.x && part.y === bossPart.y) {
+          hitIndex = i;
+          break;
+        }
+      }
 
-    for (let i = 0; i < player.snake.length; i++) {
-      const part = player.snake[i];
+      if (hitIndex !== -1) {
+        // How many body parts boss "eats"
+        const eatenLength = player.snake.length - hitIndex;
 
-      if (
-        part.x === bossHead.x &&
-        part.y === bossHead.y
-      ) {
-        hitIndex = i;
+        // Add growth to boss
+        boss.grow += eatenLength;
+
+        // Player head bitten = death
+        if (hitIndex === 0) {
+          player.alive = false;
+          player.snake = [];
+        }
+        // Player body bitten = cut snake
+        else {
+          player.snake = player.snake.slice(0, hitIndex);
+          player.score = Math.max(0, player.score - 5);
+        }
+
+        // Only handle one collision per boss segment per tick
         break;
       }
-    }
-
-
-    if (hitIndex !== -1) {
-
-      // How many body parts boss eats
-      const eatenLength = player.snake.length - hitIndex;
-
-
-      // Add growth to boss
-      boss.grow += eatenLength;
-
-
-      // Player head bitten = death
-      if (hitIndex === 0) {
-
-        player.alive = false;
-        player.snake = [];
-
-      } 
-
-      // Player body bitten = cut snake
-      else {
-
-        player.snake = player.snake.slice(0, hitIndex);
-
-        player.score = Math.max(0, player.score - 5);
-      }
-
-
-      // optional: make boss stronger
-      // boss.score += eatenLength;
     }
   }
 }

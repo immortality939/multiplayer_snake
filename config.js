@@ -5,7 +5,7 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 3,              // starting snake length
+  initialLength: 30,              // starting snake length
   initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
