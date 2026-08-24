@@ -273,7 +273,7 @@ function startFoodTimers(room) {
       const bossConfig = CONFIG.boss || {};
       const rageInterval = bossConfig.rageIntervalMs || 5000;
       const rageDuration = bossConfig.rageDurationMs || 3000;
-      const rageSpeed = bossConfig.rageSpeedMs || 10;
+      const rageSpeed = bossConfig.rageSpeedMs || 90;
 
       if (boss.rageTimer) clearInterval(boss.rageTimer);
 
@@ -364,11 +364,11 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss || {};
-  const baseSpeed = bossConfig.baseSpeedMs || 120;
+  const baseSpeed = bossConfig.baseSpeedMs || 400;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = Math.floor(WIDTH / 2);
-  const initialLen = 3;
+  const initialLen = 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
