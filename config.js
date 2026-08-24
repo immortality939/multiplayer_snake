@@ -9,7 +9,7 @@ const GAME_CONFIG = {
   initialPosition: { x: 10, y: 5 },
 
   // Movement & speed
-  speedMs: 120,
+  speedMs: 10,
 
   // Grid & board
   grid: {
@@ -66,8 +66,8 @@ const GAME_CONFIG = {
   // BOSS snake settings
   boss: {
     enabledInLevel: 6,
-    length: 3,
-    baseSpeedMs: 10,
+    length: 30,
+    baseSpeedMs: 120,
     rageSpeedMs: 90,
     rageIntervalMs: 5000,
     rageDurationMs: 3000,
