@@ -267,30 +267,66 @@ function startFoodTimers(room) {
   
 
   // BOSS rage timer for Level 6
+function startFoodTimers(room) {
+  stopFoodTimers(room);
+
   // BOSS rage timer for Level 6
-if (room.level === CONFIG.boss.enabledInLevel) {
-  const boss = bossState.get(room.name);
-  if (boss) {
-    const bossConfig = CONFIG.boss || {};
-    const rageInterval = bossConfig.rageIntervalMs || 5000;
-    const rageDuration = bossConfig.rageDurationMs || 3000;
-    const rageSpeed = bossConfig.rageSpeedMs || 90;
+  if (room.level === CONFIG.boss.enabledInLevel) {
+    const boss = bossState.get(room.name);
 
-    if (boss.rageTimer) clearInterval(boss.rageTimer);
+    if (boss) {
+      const bossConfig = CONFIG.boss || {};
+      const rageInterval = bossConfig.rageIntervalMs || 5000;
+      const rageDuration = bossConfig.rageDurationMs || 3000;
+      const rageSpeed = bossConfig.rageSpeedMs || 90;
 
-    boss.rageTimer = setInterval(() => {
-      if (!room.started || room.paused || !boss.alive) return;
+      if (boss.rageTimer) clearInterval(boss.rageTimer);
 
-      boss.rageActive = true;
-      boss.currentSpeed = rageSpeed;
+      boss.rageTimer = setInterval(() => {
+        if (!room.started || room.paused || !boss.alive) return;
 
-      setTimeout(() => {
-        if (!boss.alive) return;
-        boss.rageActive = false;
-        boss.currentSpeed = boss.baseSpeed;
-      }, rageDuration);
-    }, rageInterval);
+        boss.rageActive = true;
+        boss.currentSpeed = rageSpeed;
+
+        setTimeout(() => {
+          if (!boss.alive) return;
+
+          boss.rageActive = false;
+          boss.currentSpeed = boss.baseSpeed;
+        }, rageDuration);
+      }, rageInterval);
+    }
   }
+
+  room.blueTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food.push(randomFood('blue'));
+
+    broadcastRoom(room, {
+      type: 'state',
+      players: publicPlayers(room),
+      food: room.food,
+      paused: room.paused
+    });
+  }, CONFIG.timings.blueAppleSpawn);
+
+  room.greenTimer = setInterval(() => {
+    if (!room.started || room.paused) {
+      return;
+    }
+
+    room.food.push(randomFood('green'));
+
+    broadcastRoom(room, {
+      type: 'state',
+      players: publicPlayers(room),
+      food: room.food,
+      paused: room.paused
+    });
+  }, CONFIG.timings.greenAppleSpawn);
 }
 
   room.blueTimer = setInterval(() => {

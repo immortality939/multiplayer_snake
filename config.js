@@ -5,7 +5,7 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 30,              // starting snake length
+  initialLength: 3,              // starting snake length
   initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
@@ -64,16 +64,16 @@ const GAME_CONFIG = {
   },
 
   // BOSS snake settings (Level 6 only)
-  boss: {
+boss: {
   enabledInLevel: 6,
-  baseSpeedMs: 120,
+  baseSpeedMs: 40,
   rageSpeedMs: 20,
   rageIntervalMs: 5000,
   rageDurationMs: 3000,
-  baseColor: '#8b5cf6',
-  rageColor: '#ef4444',
+  baseColor: '#b5c6ff',
+  rageColor: '#ff4444',
   highlightColor: '#ef4444'
-}
+},
 
   // Audio volumes (0.0 to 1.0)
   audio: {

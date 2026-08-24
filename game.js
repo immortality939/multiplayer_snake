@@ -1692,7 +1692,7 @@ function leaveRoom() {
 
   setRoomMessage('');
   showScreen(multiplayerMenu);
-  connectSocket();
+  
 }
 
 singlePlayerBtn.addEventListener('click', beginSinglePlayer);
@@ -2575,7 +2575,7 @@ function gameLoop() {
 singlePlayerBtn.focus();
 showScreen(mainMenu);
 playIntroMusic();
-connectSocket();
+
 
 canvas.width = 360;
 canvas.height = 400;
