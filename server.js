@@ -367,7 +367,7 @@ function createBossSnakeServer(room) {
   const baseSpeed = bossConfig.baseSpeedMs || 120;
 
   const startX = Math.floor(WIDTH / 2);
-  const startY = Math.floor(HEIGHT / 2);
+  const startY = 10;
   const initialLen = 20;
 
   const snake = [];
@@ -415,7 +415,7 @@ function isBossDirectionSafeServer(head, dir, room) {
     return false;
   }
 
-  const levelObstacles = createLevelObstacles(room.level || 1);
+  const levelObstacles = createLevelObstaclesForLevel(room.level || 1);
   for (let i = 0; i < levelObstacles.length; i++) {
     if (levelObstacles[i].x === next.x && levelObstacles[i].y === next.y) {
       return false;
