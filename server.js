@@ -267,30 +267,31 @@ function startFoodTimers(room) {
   
 
   // BOSS rage timer for Level 6
-  if (room.level === CONFIG.boss.enabledInLevel)
-    const boss = bossState.get(room.name);
-    if (boss) {
-      const bossConfig = CONFIG.boss || {};
-      const rageInterval = bossConfig.rageIntervalMs || 5000;
-      const rageDuration = bossConfig.rageDurationMs || 3000;
-      const rageSpeed = bossConfig.rageSpeedMs || 10;
+  // BOSS rage timer for Level 6
+if (room.level === CONFIG.boss.enabledInLevel) {
+  const boss = bossState.get(room.name);
+  if (boss) {
+    const bossConfig = CONFIG.boss || {};
+    const rageInterval = bossConfig.rageIntervalMs || 5000;
+    const rageDuration = bossConfig.rageDurationMs || 3000;
+    const rageSpeed = bossConfig.rageSpeedMs || 90;
 
-      if (boss.rageTimer) clearInterval(boss.rageTimer);
+    if (boss.rageTimer) clearInterval(boss.rageTimer);
 
-      boss.rageTimer = setInterval(() => {
-        if (!room.started || room.paused || !boss.alive) return;
+    boss.rageTimer = setInterval(() => {
+      if (!room.started || room.paused || !boss.alive) return;
 
-        boss.rageActive = true;
-        boss.currentSpeed = rageSpeed;
+      boss.rageActive = true;
+      boss.currentSpeed = rageSpeed;
 
-        setTimeout(() => {
-          if (!boss.alive) return;
-          boss.rageActive = false;
-          boss.currentSpeed = boss.baseSpeed;
-        }, rageDuration);
-      }, rageInterval);
-    }
+      setTimeout(() => {
+        if (!boss.alive) return;
+        boss.rageActive = false;
+        boss.currentSpeed = boss.baseSpeed;
+      }, rageDuration);
+    }, rageInterval);
   }
+}
 
   room.blueTimer = setInterval(() => {
     if (!room.started || room.paused) {
