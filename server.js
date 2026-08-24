@@ -334,13 +334,14 @@ function startRoom(room) {
 
   room.started = true;
   resetRoomGame(room);
-  startFoodTimers(room);
-  
+
   if (room.level === 6) {
     bossState.set(room.name, createBossSnakeServer(room));
   } else {
     bossState.delete(room.name);
   }
+
+  startFoodTimers(room);
 
   const boss = room.level === 6 ? bossState.get(room.name) : null;
 
@@ -1148,7 +1149,13 @@ wss.on('connection', (ws) => {
         }
 
         resetRoomGame(room);
-        bossState.delete(room.name);
+
+        if (room.level === 6) {
+          bossState.set(room.name, createBossSnakeServer(room));
+        } else {
+          bossState.delete(room.name);
+        }
+
         startFoodTimers(room);
 
         broadcastRoom(room, {
