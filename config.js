@@ -66,8 +66,8 @@ const GAME_CONFIG = {
   // BOSS snake settings (Level 6 only)
   boss: {
     enabledInLevel: 6,
-    baseSpeedMs: 50,
-    rageSpeedMs: 90,
+    baseSpeedMs: 5,
+    rageSpeedMs: 9,
     rageIntervalMs: 5000,
     rageDurationMs: 3000,
     baseColor: '#8b5cf6',      // violet
