@@ -9,7 +9,7 @@ const GAME_CONFIG = {
   initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
-  speedMs: 120l,                   // game loop interval in milliseconds (lower = faster)
+  speedMs: 12,                   // game loop interval in milliseconds (lower = faster)
 
   // Grid & board
   grid: {
