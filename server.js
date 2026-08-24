@@ -173,6 +173,7 @@ function roomState(room) {
     started: room.started,
     paused: room.paused,
     level: room.level,
+    obstacles: createLevelObstacles(room.level),
     players: publicPlayers(room)
   };
 }
@@ -352,6 +353,7 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
+    obstacles: createLevelObstacles(room.level),
     paused: room.paused,
     level: room.level,
     boss: boss ? {
@@ -895,12 +897,74 @@ function gameStep(room) {
     moveBossSnakeServer(room);
   }
 
+if (room.level === 6) {
+    bossEatPlayerServer(room);
+}
+
+function bossEatPlayerServer(room) {
+  const boss = bossState.get(room.name);
+
+  if (!boss || !boss.alive) {
+    return;
+  }
+
+  const bossHead = boss.snake[0];
+
+  for (const player of room.players.values()) {
+
+    if (!player.alive || !player.snake.length) {
+      continue;
+    }
+
+    let eatenSegments = [];
+
+    for (let i = player.snake.length - 1; i >= 0; i--) {
+
+      const segment = player.snake[i];
+
+      if (
+        segment.x === bossHead.x &&
+        segment.y === bossHead.y
+      ) {
+        eatenSegments.push(i);
+      }
+    }
+
+
+    if (eatenSegments.length > 0) {
+
+      // remove bitten body part
+      for (const index of eatenSegments) {
+        player.snake.splice(index, 1);
+      }
+
+
+      // boss grows from eaten body
+      boss.grow += eatenSegments.length;
+
+
+      // if head was eaten
+      if (player.snake.length <= 0) {
+
+        player.alive = false;
+
+        broadcastRoom(room,{
+          type:'playerKilledByBoss',
+          playerId:player.id
+        });
+
+      }
+    }
+  }
+}
+
   const boss = room.level === 6 ? bossState.get(room.name) : null;
 
   broadcastRoom(room, {
     type: 'state',
     players: publicPlayers(room),
     food: room.food,
+    obstacles: createLevelObstacles(room.level),
     paused: room.paused,
     level: room.level,
     boss: boss ? {
@@ -1163,6 +1227,7 @@ wss.on('connection', (ws) => {
     type: 'state',
     players: publicPlayers(room),
     food: room.food,
+    obstacles: createLevelObstacles(room.level),
     paused: room.paused,
     level: room.level,
     boss: boss ? {
