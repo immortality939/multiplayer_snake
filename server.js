@@ -570,23 +570,33 @@ function checkBossPlayerCollision(room) {
 
     if (hitIndex !== -1) {
 
-      // Boss bites player head = instant death
+      // How many body parts boss eats
+      const eatenLength = player.snake.length - hitIndex;
+
+
+      // Add growth to boss
+      boss.grow += eatenLength;
+
+
+      // Player head bitten = death
       if (hitIndex === 0) {
 
         player.alive = false;
         player.snake = [];
 
       } 
-      // Boss bites body = cut snake from bite point
+
+      // Player body bitten = cut snake
       else {
 
-        const newLength = Math.max(2, hitIndex);
+        player.snake = player.snake.slice(0, hitIndex);
 
-        player.snake = player.snake.slice(0, newLength);
-
-        // optional penalty
         player.score = Math.max(0, player.score - 5);
       }
+
+
+      // optional: make boss stronger
+      // boss.score += eatenLength;
     }
   }
 }
