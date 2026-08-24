@@ -367,7 +367,7 @@ function createBossSnakeServer(room) {
   const baseSpeed = bossConfig.baseSpeedMs || 120;
 
   const startX = Math.floor(WIDTH / 2);
-  const startY = 10;
+  const startY = Math.floor(WIDTH / 2);
   const initialLen = 20;
 
   const snake = [];
