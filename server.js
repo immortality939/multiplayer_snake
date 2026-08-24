@@ -538,6 +538,59 @@ function getBossChaseDirectionWithAvoidanceServer(head, target, room) {
   return findAnySafeDirectionServer(head, room);
 }
 
+function checkBossPlayerCollision(room) {
+  const boss = bossState.get(room.name);
+
+  if (!boss || !boss.alive || !boss.snake.length) {
+    return;
+  }
+
+  const bossHead = boss.snake[0];
+
+  for (const player of room.players.values()) {
+
+    if (!player.alive || !player.snake.length) {
+      continue;
+    }
+
+    let hitIndex = -1;
+
+    for (let i = 0; i < player.snake.length; i++) {
+      const part = player.snake[i];
+
+      if (
+        part.x === bossHead.x &&
+        part.y === bossHead.y
+      ) {
+        hitIndex = i;
+        break;
+      }
+    }
+
+
+    if (hitIndex !== -1) {
+
+      // Boss bites player head = instant death
+      if (hitIndex === 0) {
+
+        player.alive = false;
+        player.snake = [];
+
+      } 
+      // Boss bites body = cut snake from bite point
+      else {
+
+        const newLength = Math.max(2, hitIndex);
+
+        player.snake = player.snake.slice(0, newLength);
+
+        // optional penalty
+        player.score = Math.max(0, player.score - 5);
+      }
+    }
+  }
+}
+
 function moveBossSnakeServer(room) {
   const boss = bossState.get(room.name);
   if (!boss || !boss.alive || room.level !== 6 || room.paused) {
@@ -892,10 +945,13 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-    moveBossSnakeServer(room);
-  }
+  moveBossSnakeServer(room);
 
-  const boss = room.level === 6 ? bossState.get(room.name) : null;
+  // Check boss biting players
+  checkBossPlayerCollision(room);
+}
+
+const boss = room.level === 6 ? bossState.get(room.name) : null;
 
   broadcastRoom(room, {
     type: 'state',
