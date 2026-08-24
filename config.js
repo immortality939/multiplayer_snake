@@ -5,11 +5,11 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 33,              // starting snake length
+  initialLength: 30,              // starting snake length
   initialPosition: { x: 10, y: 5 }, // starting head position
 
   // Movement & speed
-  speedMs: 12,                   // game loop interval in milliseconds (lower = faster)
+  speedMs: 120,                   // game loop interval in milliseconds (lower = faster)
 
   // Grid & board
   grid: {
@@ -66,8 +66,9 @@ const GAME_CONFIG = {
   // BOSS snake settings (Level 6 only)
 boss: {
   enabledInLevel: 6,
-  baseSpeedMs: 4,      // must be a number
-  rageSpeedMs: 20,      // must be a number
+  initialLength: 20,    // NEW: boss starting length
+  baseSpeedMs: 40,
+  rageSpeedMs: 20,
   rageIntervalMs: 5000,
   rageDurationMs: 3000,
   baseColor: '#b5c6ff',

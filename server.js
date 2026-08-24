@@ -420,7 +420,7 @@ function createBossSnakeServer(room) {
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
-  const initialLen = 20;
+    const initialLen = bossConfig.initialLength || 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
