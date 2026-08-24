@@ -682,43 +682,31 @@ function checkBossPlayerCollisionsServer(room) {
 
         // Boss touched the player's head.
         if (playerIndex === 0) {
-          player.alive = false;
-          player.snake = [];
-          break;
-        }
+  player.alive = false;
+  player.snake = [];
+} else {
+  const playerLength = player.snake.length;
+  const bitePositionRatio = playerIndex / playerLength;
 
-        const playerLength = player.snake.length;
-        const bitePositionRatio = playerIndex / playerLength;
+  boss.grow += 2;
 
-        // Boss grows after biting the player.
-        boss.grow += 2;
-
-        if (bitePositionRatio < 0.3) {
-          // Bite near the head: player dies.
-          player.alive = false;
-          player.snake = [];
-        } else if (bitePositionRatio < 0.7) {
-          // Bite in the middle: remove the bitten part and tail.
-          player.snake = player.snake.slice(
-            0,
-            Math.max(1, Math.ceil(playerLength / 2))
-          );
-        } else {
-          // Bite near the tail: remove one segment.
-          if (player.snake.length > 3) {
-            player.snake.pop();
-          }
-        }
-
-        break;
-      }
-
-      if (!player.alive) {
-        break;
-      }
+  if (bitePositionRatio < 0.3) {
+    player.alive = false;
+    player.snake = [];
+  } else if (bitePositionRatio < 0.7) {
+    // Remove bitten segment and everything behind it.
+    player.snake = player.snake.slice(
+      0,
+      Math.max(1, playerIndex)
+    );
+  } else {
+    // Tail bite.
+    if (player.snake.length > 3) {
+      player.snake.pop();
     }
   }
 }
+
 
 function createLevelObstacles(level) {
   const result = [];
