@@ -5,11 +5,11 @@
 
 const GAME_CONFIG = {
   // Initial snake settings
-  initialLength: 30,
+  initialLength: 3,
   initialPosition: { x: 10, y: 5 },
 
   // Movement & speed
-  speedMs: 10,
+  speedMs: -610,
 
   // Grid & board
   grid: {
