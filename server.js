@@ -273,7 +273,7 @@ function startFoodTimers(room) {
       const bossConfig = CONFIG.boss || {};
       const rageInterval = bossConfig.rageIntervalMs || 5000;
       const rageDuration = bossConfig.rageDurationMs || 3000;
-      const rageSpeed = bossConfig.rageSpeedMs || 9;
+      const rageSpeed = bossConfig.rageSpeedMs || 10;
 
       if (boss.rageTimer) clearInterval(boss.rageTimer);
 
