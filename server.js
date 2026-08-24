@@ -267,7 +267,7 @@ function startFoodTimers(room) {
   
 
   // BOSS rage timer for Level 6
-  if (room.level === 6) {
+  if (room.level === CONFIG.boss.enabledInLevel)
     const boss = bossState.get(room.name);
     if (boss) {
       const bossConfig = CONFIG.boss || {};
