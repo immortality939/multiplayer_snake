@@ -173,7 +173,6 @@ function roomState(room) {
     started: room.started,
     paused: room.paused,
     level: room.level,
-    obstacles: createLevelObstacles(room.level),
     players: publicPlayers(room)
   };
 }
@@ -353,7 +352,6 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    obstacles: createLevelObstacles(room.level),
     paused: room.paused,
     level: room.level,
     boss: boss ? {
@@ -650,6 +648,78 @@ function moveBossSnakeServer(room) {
   }
 }
 
+function checkBossPlayerCollisionsServer(room) {
+  if (room.level !== 6) {
+    return;
+  }
+
+  const boss = bossState.get(room.name);
+
+  if (!boss || !boss.alive || !boss.snake.length) {
+    return;
+  }
+
+  for (const player of room.players.values()) {
+    if (!player.alive || !player.snake || !player.snake.length) {
+      continue;
+    }
+
+    const bossSegments = boss.snake;
+    const playerSegments = player.snake;
+
+    for (let bossIndex = 0; bossIndex < bossSegments.length; bossIndex++) {
+      const bossPart = bossSegments[bossIndex];
+
+      for (let playerIndex = 0; playerIndex < playerSegments.length; playerIndex++) {
+        const playerPart = playerSegments[playerIndex];
+
+        if (
+          bossPart.x !== playerPart.x ||
+          bossPart.y !== playerPart.y
+        ) {
+          continue;
+        }
+
+        // Boss touched the player's head.
+        if (playerIndex === 0) {
+          player.alive = false;
+          player.snake = [];
+          break;
+        }
+
+        const playerLength = player.snake.length;
+        const bitePositionRatio = playerIndex / playerLength;
+
+        // Boss grows after biting the player.
+        boss.grow += 2;
+
+        if (bitePositionRatio < 0.3) {
+          // Bite near the head: player dies.
+          player.alive = false;
+          player.snake = [];
+        } else if (bitePositionRatio < 0.7) {
+          // Bite in the middle: remove the bitten part and tail.
+          player.snake = player.snake.slice(
+            0,
+            Math.max(1, Math.ceil(playerLength / 2))
+          );
+        } else {
+          // Bite near the tail: remove one segment.
+          if (player.snake.length > 3) {
+            player.snake.pop();
+          }
+        }
+
+        break;
+      }
+
+      if (!player.alive) {
+        break;
+      }
+    }
+  }
+}
+
 function createLevelObstacles(level) {
   const result = [];
   const middleY = Math.floor(HEIGHT / 2);
@@ -894,68 +964,8 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-    moveBossSnakeServer(room);
-  }
-
-if (room.level === 6) {
-    bossEatPlayerServer(room);
-}
-
-function bossEatPlayerServer(room) {
-  const boss = bossState.get(room.name);
-
-  if (!boss || !boss.alive) {
-    return;
-  }
-
-  const bossHead = boss.snake[0];
-
-  for (const player of room.players.values()) {
-
-    if (!player.alive || !player.snake.length) {
-      continue;
-    }
-
-    let eatenSegments = [];
-
-    for (let i = player.snake.length - 1; i >= 0; i--) {
-
-      const segment = player.snake[i];
-
-      if (
-        segment.x === bossHead.x &&
-        segment.y === bossHead.y
-      ) {
-        eatenSegments.push(i);
-      }
-    }
-
-
-    if (eatenSegments.length > 0) {
-
-      // remove bitten body part
-      for (const index of eatenSegments) {
-        player.snake.splice(index, 1);
-      }
-
-
-      // boss grows from eaten body
-      boss.grow += eatenSegments.length;
-
-
-      // if head was eaten
-      if (player.snake.length <= 0) {
-
-        player.alive = false;
-
-        broadcastRoom(room,{
-          type:'playerKilledByBoss',
-          playerId:player.id
-        });
-
-      }
-    }
-  }
+  moveBossSnakeServer(room);
+  checkBossPlayerCollisionsServer(room);
 }
 
   const boss = room.level === 6 ? bossState.get(room.name) : null;
@@ -964,7 +974,6 @@ function bossEatPlayerServer(room) {
     type: 'state',
     players: publicPlayers(room),
     food: room.food,
-    obstacles: createLevelObstacles(room.level),
     paused: room.paused,
     level: room.level,
     boss: boss ? {
@@ -1204,41 +1213,25 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'restart') {
-  const player = client.player;
-  const room = player && getRoom(player.roomName);
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
 
-  if (!room || !room.started || !player.host) {
-    return;
-  }
+        if (!room || !room.started || !player.host) {
+          return;
+        }
 
-  resetRoomGame(room);
+        resetRoomGame(room);
+        startFoodTimers(room);
 
-  if (room.level === 6) {
-    bossState.set(room.name, createBossSnakeServer(room));
-  } else {
-    bossState.delete(room.name);
-  }
+        broadcastRoom(room, {
+          type: 'state',
+          players: publicPlayers(room),
+          food: room.food,
+          paused: room.paused
+        });
 
-  startFoodTimers(room);
-
-  const boss = room.level === 6 ? bossState.get(room.name) : null;
-
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    obstacles: createLevelObstacles(room.level),
-    paused: room.paused,
-    level: room.level,
-    boss: boss ? {
-      snake: boss.snake,
-      alive: boss.alive,
-      rageActive: boss.rageActive
-    } : null
-  });
-
-  return;
-}
+        return;
+      }
 
       if (data.type === 'dir') {
         const player = client.player;
