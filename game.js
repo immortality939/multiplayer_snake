@@ -1,4 +1,19 @@
 // Use config from snake.js
+// Fallback if config didn't load
+if (!window.GAME_CONFIG) {
+  window.GAME_CONFIG = {
+    grid: { width: 72, height: 80, cellSize: 5, drawSize: 5 },
+    initialPosition: { x: 10, y: 5 },
+    initialLength: 3,
+    speed: { player: 120, enemy: 120, boss: { normal: 60, rage: 20 } },
+    timings: { gameLoop: 120, blueAppleSpawn: 8000, greenAppleSpawn: 16000, enemySpawn: 20000 },
+    foodGrowth: { red: 2, blue: 8, green: 15 },
+    boss: { baseSpeedMs: 60, rageSpeedMs: 20, rageIntervalMs: 5000, rageDurationMs: 3000, initialLength: 20, baseColor: '#b5c6ff', rageColor: '#ff4444', highlightColor: '#ef4444' },
+    audio: { introVolume: 0.35, bgVolume: 0.35, gameOverVolume: 1.0 }
+  };
+  console.warn('GAME_CONFIG not found, using defaults');
+}
+
 // Use config from config.js
 const WS_URL = window.GAME_CONFIG?.multiplayer?.wsUrl || 'wss://multiplayer-snake-9g07.onrender.com';
 
@@ -333,7 +348,7 @@ function handleServerMessage(data) {
 
     multiplayerLevel = data.level || 1;
     selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles();
+    obstacles = createLevelObstacles(selectedLevel);
 
     players = convertPlayers(data.players);
     food = normalizeFood(data.food);
@@ -1564,19 +1579,6 @@ function startOfflineAppleTimers() {
       draw();
     }
   }, timings.enemySpawn);
-  
-  offlineEnemyTimer = setInterval(() => {
-  if (
-    mode === 'offline' &&
-    !isPaused &&
-    !localGameOverShown &&
-    selectedLevel !== 6
-  ) {
-    spawnEnemy();
-    draw();
-  }
-}, timings.enemySpawn);
-}
 
   // Enemy movement timer (separate from player)
   enemyMoveTimer = setInterval(() => {
@@ -1871,8 +1873,8 @@ function resetLocalGame() {
   setStatus('Offline');
   draw();
 }
-function createLevelObstacles() {
-  if (selectedLevel === 1) {
+function createLevelObstacles(level = selectedLevel) {
+  if (level === 1) {
     return [];
   }
 
@@ -1881,9 +1883,9 @@ function createLevelObstacles() {
   const middleX = Math.floor(gridWidth / 2);
 
   if (
-    selectedLevel === 2 ||
-    selectedLevel === 3 ||
-    selectedLevel === 4
+    level === 2 ||
+    level === 3 ||
+    level === 4
   ) {
     for (let x = 18; x < gridWidth - 18; x++) {
       result.push({
@@ -1893,7 +1895,7 @@ function createLevelObstacles() {
     }
   }
 
-  if (selectedLevel === 3) {
+  if (level === 3) {
     for (let y = 10; y < gridHeight - 10; y++) {
       result.push({
         x: middleX,
@@ -1902,7 +1904,7 @@ function createLevelObstacles() {
     }
   }
 
-  if (selectedLevel === 4) {
+  if (level === 4) {
     const horizontalGapStart =
       Math.floor(gridWidth / 2) - 4;
     const horizontalGapEnd =
@@ -1949,7 +1951,7 @@ function createLevelObstacles() {
     }
   }
 
-  if (selectedLevel === 5) {
+  if (level === 5) {
     const rows = [
       {
         y: 15,
@@ -1994,7 +1996,7 @@ function createLevelObstacles() {
     }
   }
 
-  if (selectedLevel === 6) {
+  if (level === 6) {
     const addBox = (x1, y1, x2, y2, openings = []) => {
       for (let x = x1; x <= x2; x++) {
         for (let y = y1; y <= y2; y++) {
