@@ -278,11 +278,6 @@ function stopFoodTimers(room) {
 
 function startFoodTimers(room) {
   stopFoodTimers(room);
-  
-
-  // BOSS rage timer for Level 6
-function startFoodTimers(room) {
-  stopFoodTimers(room);
 
   // BOSS rage timer for Level 6
   if (room.level === CONFIG.boss.enabledInLevel) {
@@ -292,8 +287,8 @@ function startFoodTimers(room) {
       const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
       const baseSpeed = speedConfig.normal;
       const rageSpeed = speedConfig.rage;
-      const rageInterval = bossConfig.rageIntervalMs || 5000;
-      const rageDuration = bossConfig.rageDurationMs || 3000;
+      const rageInterval = CONFIG.boss.rageIntervalMs || 5000;
+      const rageDuration = CONFIG.boss.rageDurationMs || 3000;
 
       if (boss.rageTimer) clearInterval(boss.rageTimer);
 
@@ -303,11 +298,39 @@ function startFoodTimers(room) {
         boss.rageActive = true;
         boss.currentSpeed = rageSpeed;
 
+        // Broadcast rage start
+        broadcastRoom(room, {
+          type: 'state',
+          players: publicPlayers(room),
+          food: room.food,
+          paused: room.paused,
+          level: room.level,
+          boss: {
+            snake: boss.snake,
+            alive: boss.alive,
+            rageActive: true
+          }
+        });
+
         setTimeout(() => {
           if (!boss.alive) return;
 
           boss.rageActive = false;
           boss.currentSpeed = baseSpeed;
+
+          // Broadcast rage end
+          broadcastRoom(room, {
+            type: 'state',
+            players: publicPlayers(room),
+            food: room.food,
+            paused: room.paused,
+            level: room.level,
+            boss: {
+              snake: boss.snake,
+              alive: boss.alive,
+              rageActive: false
+            }
+          });
         }, rageDuration);
       }, rageInterval);
     }
@@ -343,8 +366,6 @@ function startFoodTimers(room) {
     });
   }, CONFIG.timings.greenAppleSpawn);
 }
-
-  room.blueTimer = setInterval(() => {
     if (!room.started || room.paused) {
       return;
     }
@@ -417,7 +438,7 @@ function startRoom(room) {
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
   const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
-  const baseSpeed = bossConfig.baseSpeedMs || speedConfig.normal;
+  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 60;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
@@ -995,13 +1016,11 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-  moveBossSnakeServer(room);
+    moveBossSnakeServer(room);
+    checkBossPlayerCollision(room);
+  }
 
-  // Check boss biting players
-  checkBossPlayerCollision(room);
-}
-
-const boss = room.level === 6 ? bossState.get(room.name) : null;
+  const boss = room.level === 6 ? bossState.get(room.name) : null;
 
   broadcastRoom(room, {
     type: 'state',
