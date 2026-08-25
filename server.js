@@ -126,9 +126,10 @@ function createPlayer(ws, name, host) {
     score: 0,
     grow: 0,
     snake: createSnake(id),
-roomName: '',
+    roomName: '',
     moveInterval: CONFIG.speed?.player || 120,
     lastMoveTime: 0
+    
   };
 }
 
@@ -260,8 +261,8 @@ function resetRoomGame(room) {
     player.score = 0;
     player.grow = 0;
     player.snake = createSnake(player.id);
-player.moveInterval = CONFIG.speed?.player || 120;
-player.lastMoveTime = 0;
+    player.moveInterval = CONFIG.speed?.player || 120;
+    player.lastMoveTime = 0;
   }
 }
 
@@ -705,10 +706,6 @@ function moveBossSnakeServer(room, now = Date.now()) {
     return;
   }
 
-  boss.lastMoveTime = now;
-  if (now - boss.lastMoveTime < boss.currentSpeed) {
-    return;
-  }
   boss.lastMoveTime = now;
 
   const head = boss.snake[0];
@@ -1299,11 +1296,13 @@ wss.on('connection', (ws) => {
 
         room.paused = !room.paused;
 
-        broadcastRoom(room, {
+                broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+          level: room.level,
+          boss: getPublicBoss(room)
         });
 
         return;
@@ -1327,11 +1326,13 @@ wss.on('connection', (ws) => {
 
         startFoodTimers(room);
 
-        broadcastRoom(room, {
+                broadcastRoom(room, {
           type: 'state',
           players: publicPlayers(room),
           food: room.food,
-          paused: room.paused
+          paused: room.paused,
+          level: room.level,
+          boss: getPublicBoss(room)
         });
 
         return;

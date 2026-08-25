@@ -2666,6 +2666,17 @@ function gameLoop() {
   draw();
 }
 
+setInterval(() => {
+  if (
+    mode === 'online' &&
+    remoteBoss &&
+    remoteBoss.alive &&
+    remoteBoss.rageActive
+  ) {
+    draw();
+  }
+}, 100);
+
 singlePlayerBtn.focus();
 showScreen(mainMenu);
 playIntroMusic();
