@@ -127,6 +127,8 @@ let offlineBlueTimer = null;
 let offlineGreenTimer = null;
 let offlineEnemyTimer = null;
 let enemyMoveTimer = null;
+let playerMoveTimer = null;
+let bossMoveTimer = null;
 
 let enemies = [];
 let remoteBoss = null;
@@ -681,7 +683,7 @@ function spawnEnemy() {
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
   const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
-  const baseSpeed = bossConfig.baseSpeedMs || speedConfig.normal;
+  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 60;
 
   // Spawn in middle of board
   const startX = Math.floor(gridWidth / 2);
@@ -713,6 +715,7 @@ function startBossTimers() {
   stopBossTimers();
 
   const bossConfig = window.GAME_CONFIG?.boss || {};
+  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
   const rageInterval = bossConfig.rageIntervalMs || 5000;
   const rageDuration = bossConfig.rageDurationMs || 3000;
   const blinkInterval = 100; // fast blink
@@ -731,6 +734,17 @@ function startBossTimers() {
     }
     // Blink handled in drawBossSnake()
   }, blinkInterval);
+
+  // Boss movement timer
+  bossMoveTimer = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      return;
+    }
+
+    moveBossSnake();
+    checkBossPlayerCollision();
+    draw();
+  }, bossSnake.currentSpeed);
 }
 
 
@@ -1192,9 +1206,11 @@ function drawBossSnake() {
 function stopBossTimers() {
   clearInterval(bossTimers.rage);
   clearInterval(bossTimers.blink);
+  clearInterval(bossMoveTimer);
 
   bossTimers.rage = null;
   bossTimers.blink = null;
+  bossMoveTimer = null;
   bossRageActive = false;
 }
 
@@ -1202,12 +1218,24 @@ function activateBossRage(durationMs) {
   if (!bossSnake || !bossSnake.alive) return;
 
   const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
-  const rageSpeed = speedConfig.rage;
+  const rageSpeed = speedConfig.rage || 20;
 
   bossSnake.rageActive = true;
   bossSnake.currentSpeed = rageSpeed;
   bossRageActive = true;
   bossRageEndTime = Date.now() + durationMs;
+
+  // Restart boss move timer with rage speed
+  clearInterval(bossMoveTimer);
+  bossMoveTimer = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      return;
+    }
+
+    moveBossSnake();
+    checkBossPlayerCollision();
+    draw();
+  }, rageSpeed);
 
   // End rage after duration
   setTimeout(() => {
@@ -1216,6 +1244,18 @@ function activateBossRage(durationMs) {
     bossSnake.rageActive = false;
     bossSnake.currentSpeed = bossSnake.baseSpeed;
     bossRageActive = false;
+
+    // Restart boss move timer with normal speed
+    clearInterval(bossMoveTimer);
+    bossMoveTimer = setInterval(() => {
+      if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+        return;
+      }
+
+      moveBossSnake();
+      checkBossPlayerCollision();
+      draw();
+    }, bossSnake.baseSpeed);
   }, durationMs);
 }
 function getNextEnemyPosition(position, direction) {
@@ -1595,6 +1635,25 @@ function startOfflineAppleTimers() {
       draw();
     }
   }, speedConfig.enemy);
+
+  // Player movement timer (separate from game loop)
+  playerMoveTimer = setInterval(() => {
+    if (mode === 'offline' && !isPaused && !localGameOverShown) {
+      stepLocal();
+      draw();
+    }
+  }, speedConfig.player);
+
+  // Boss movement timer (separate from game loop)
+  if (selectedLevel === 6) {
+    bossMoveTimer = setInterval(() => {
+      if (mode === 'offline' && !isPaused && !localGameOverShown && bossSnake && bossSnake.alive) {
+        moveBossSnake();
+        checkBossPlayerCollision();
+        draw();
+      }
+    }, speedConfig.boss.normal);
+  }
 }
 
 function stopOfflineAppleTimers() {
@@ -1602,11 +1661,15 @@ function stopOfflineAppleTimers() {
   clearInterval(offlineGreenTimer);
   clearInterval(offlineEnemyTimer);
   clearInterval(enemyMoveTimer);
+  clearInterval(playerMoveTimer);
+  clearInterval(bossMoveTimer);
 
   offlineBlueTimer = null;
   offlineGreenTimer = null;
   offlineEnemyTimer = null;
   enemyMoveTimer = null;
+  playerMoveTimer = null;
+  bossMoveTimer = null;
 }
 
 function beginSinglePlayer() {
@@ -2595,24 +2658,9 @@ if (eatenApple.type === 'blue') {
 
 function gameLoop() {
   if (mode === 'offline') {
-    stepLocal();
-
-    if (selectedLevel === 6) {
-      moveBossSnake();
-      checkBossPlayerCollision();
-
-      if (!bossSnake?.alive) {
-        stopBossTimers();
-      }
-    } else {
-      for (const enemy of enemies) {
-        moveEnemy(enemy);
-      }
-
-      enemies = enemies.filter((enemy) =>
-        enemy.alive
-      );
-    }
+    // Player movement is now on separate timer (playerMoveTimer)
+    // Enemy movement is now on separate timer (enemyMoveTimer)
+    // Boss movement is now on separate timer (bossMoveTimer)
   }
 
   draw();

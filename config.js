@@ -13,8 +13,8 @@ const GAME_CONFIG = {
     player: 120,        // Player snake speed (offline & online)
     enemy: 120,         // Enemy AI snakes (levels 1-5)
     boss: {
-      normal: 60,       // Boss snake normal speed
-      rage: 20          // Boss snake rage speed
+      normal: 120,       // Boss snake normal speed
+      rage: 60          // Boss snake rage speed
     }
   },
 
@@ -71,17 +71,17 @@ const GAME_CONFIG = {
   },
 
   // BOSS snake settings (Level 6 only)
-boss: {
-  enabledInLevel: 6,
-  initialLength: 20,    // NEW: boss starting length
-  baseSpeedMs: 60,
-  rageSpeedMs: 20,
-  rageIntervalMs: 5000,
-  rageDurationMs: 3000,
-  baseColor: '#b5c6ff',
-  rageColor: '#ff4444',
-  highlightColor: '#ef4444'
-},
+  boss: {
+    enabledInLevel: 6,
+    initialLength: 20,
+    baseSpeedMs: 120,   // Match speed.boss.normal
+    rageSpeedMs: 60,    // Match speed.boss.rage
+    rageIntervalMs: 5000,
+    rageDurationMs: 3000,
+    baseColor: '#b5c6ff',
+    rageColor: '#ff4444',
+    highlightColor: '#ef4444'
+  },
 
   // Audio volumes (0.0 to 1.0)
   audio: {
