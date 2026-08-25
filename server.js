@@ -268,11 +268,17 @@ function stopFoodTimers(room) {
   room.blueTimer = null;
   room.greenTimer = null;
 
-  // Clean up BOSS rage timer
+  // Clean up BOSS timers
   const boss = bossState.get(room.name);
-  if (boss && boss.rageTimer) {
-    clearInterval(boss.rageTimer);
-    boss.rageTimer = null;
+  if (boss) {
+    if (boss.rageTimer) {
+      clearInterval(boss.rageTimer);
+      boss.rageTimer = null;
+    }
+    if (boss.moveTimer) {
+      clearInterval(boss.moveTimer);
+      boss.moveTimer = null;
+    }
   }
 }
 
@@ -304,9 +310,38 @@ function startFoodTimers(room) {
         clearInterval(boss.rageTimer);
       }
 
+      if (boss.moveTimer) {
+        clearInterval(boss.moveTimer);
+      }
 
       boss.currentSpeed = normalSpeed;
       boss.rageActive = false;
+
+      // BOSS MOVE TIMER - moves boss independently
+      boss.moveTimer = setInterval(() => {
+        if (!room.started || room.paused || !boss.alive) {
+          return;
+        }
+
+        moveBossSnakeServer(room);
+        checkBossPlayerCollision(room);
+
+        const bossData = bossState.get(room.name);
+        if (bossData) {
+          broadcastRoom(room, {
+            type: 'state',
+            players: publicPlayers(room),
+            food: room.food,
+            paused: room.paused,
+            level: room.level,
+            boss: {
+              snake: bossData.snake,
+              alive: bossData.alive,
+              rageActive: bossData.rageActive
+            }
+          });
+        }
+      }, boss.currentSpeed);
 
 
       boss.rageTimer = setInterval(() => {
@@ -323,6 +358,33 @@ function startFoodTimers(room) {
         // START RAGE
         boss.rageActive = true;
         boss.currentSpeed = rageSpeed;
+
+        // Restart boss move timer with rage speed
+        clearInterval(boss.moveTimer);
+        boss.moveTimer = setInterval(() => {
+          if (!room.started || room.paused || !boss.alive) {
+            return;
+          }
+
+          moveBossSnakeServer(room);
+          checkBossPlayerCollision(room);
+
+          const bossData = bossState.get(room.name);
+          if (bossData) {
+            broadcastRoom(room, {
+              type: 'state',
+              players: publicPlayers(room),
+              food: room.food,
+              paused: room.paused,
+              level: room.level,
+              boss: {
+                snake: bossData.snake,
+                alive: bossData.alive,
+                rageActive: bossData.rageActive
+              }
+            });
+          }
+        }, boss.currentSpeed);
 
 
         broadcastRoom(room, {
@@ -350,6 +412,33 @@ function startFoodTimers(room) {
           // END RAGE
           boss.rageActive = false;
           boss.currentSpeed = normalSpeed;
+
+          // Restart boss move timer with normal speed
+          clearInterval(boss.moveTimer);
+          boss.moveTimer = setInterval(() => {
+            if (!room.started || room.paused || !boss.alive) {
+              return;
+            }
+
+            moveBossSnakeServer(room);
+            checkBossPlayerCollision(room);
+
+            const bossData = bossState.get(room.name);
+            if (bossData) {
+              broadcastRoom(room, {
+                type: 'state',
+                players: publicPlayers(room),
+                food: room.food,
+                paused: room.paused,
+                level: room.level,
+                boss: {
+                  snake: bossData.snake,
+                  alive: bossData.alive,
+                  rageActive: bossData.rageActive
+                }
+              });
+            }
+          }, boss.currentSpeed);
 
 
           broadcastRoom(room, {
@@ -476,6 +565,8 @@ function createBossSnakeServer(room) {
     currentSpeed: baseSpeed,
     lastMoveTime: 0,
     rageActive: false,
+    rageTimer: null,
+    moveTimer: null,
     patrolTarget: getRandomPatrolTargetServer()
   };
 }
@@ -1027,16 +1118,7 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-    const boss = bossState.get(room.name);
-    const now = Date.now();
-
-    // Only move boss if enough time has passed based on currentSpeed
-    if (boss && boss.alive && (!boss.lastMoveTime || now - boss.lastMoveTime >= boss.currentSpeed)) {
-      boss.lastMoveTime = now;
-      moveBossSnakeServer(room);
-    }
-
-    // Check boss biting players
+    // Boss moves on its own timer now
     checkBossPlayerCollision(room);
   }
 
