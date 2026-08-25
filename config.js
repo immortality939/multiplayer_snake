@@ -13,7 +13,7 @@ const GAME_CONFIG = {
     player: 120,        // Player snake speed (offline & online)
     enemy: 120,         // Enemy AI snakes (levels 1-5)
     boss: {
-      normal: 120,       // Boss snake normal speed
+      normal: 12,       // Boss snake normal speed
       rage: 60          // Boss snake rage speed
     }
   },
@@ -74,7 +74,7 @@ const GAME_CONFIG = {
   boss: {
     enabledInLevel: 6,
     initialLength: 20,
-    baseSpeedMs: 120,   // Match speed.boss.normal
+    baseSpeedMs: 12,   // Match speed.boss.normal
     rageSpeedMs: 60,    // Match speed.boss.rage
     rageIntervalMs: 5000,
     rageDurationMs: 3000,
