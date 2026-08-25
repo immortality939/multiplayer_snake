@@ -2508,10 +2508,20 @@ function drawOnline() {
   drawApple();
 
   for (const player of Object.values(players)) {
+  if (!player.snake || !player.snake.length) {
+    continue;
+  }
+
+  const isBlinking =
+    player.dying &&
+    Math.floor(Date.now() / 100) % 2 === 0;
+
+  if (!isBlinking) {
     drawSnake(
       player.snake,
       player.color || '#22c55e'
     );
+  }
 
     if (
       player.snake &&

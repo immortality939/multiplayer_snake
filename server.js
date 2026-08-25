@@ -123,9 +123,11 @@ function createPlayer(ws, name, host) {
     dir: getSpawnDirection(id),
     nextDir: getSpawnDirection(id),
     alive: true,
-    score: 0,
-    grow: 0,
-    snake: createSnake(id),
+dying: false,
+deathTimer: null,
+score: 0,
+grow: 0,
+snake: createSnake(id),
     roomName: '',
     moveInterval: CONFIG.speed?.player || 120,
     lastMoveTime: 0
@@ -169,7 +171,8 @@ function publicPlayers(room) {
     host: player.host,
     ready: player.ready,
     alive: player.alive,
-    color: player.color,
+dying: player.dying,
+color: player.color,
     score: player.score,
     snake: player.snake
   }));
@@ -257,8 +260,14 @@ function resetRoomGame(room) {
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
     player.nextDir = getSpawnDirection(player.id);
-    player.alive = true;
-    player.score = 0;
+    if (player.deathTimer) {
+  clearTimeout(player.deathTimer);
+  player.deathTimer = null;
+}
+
+player.alive = true;
+player.dying = false;
+player.score = 0;
     player.grow = 0;
     player.snake = createSnake(player.id);
     player.moveInterval = CONFIG.speed?.player || 120;
@@ -944,10 +953,43 @@ function createLevelObstaclesForLevel(level) {
   return result;
 }
 
-function movePlayer(room, player, now) {
-  if (!player.alive) {
+function startPlayerDeath(room, player) {
+  if (!player.alive || player.dying) {
     return;
   }
+
+  player.dying = true;
+
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused,
+    level: room.level,
+    boss: getPublicBoss(room)
+  });
+
+  player.deathTimer = setTimeout(() => {
+    player.alive = false;
+    player.dying = false;
+    player.deathTimer = null;
+    player.snake = [];
+
+    broadcastRoom(room, {
+      type: 'state',
+      players: publicPlayers(room),
+      food: room.food,
+      paused: room.paused,
+      level: room.level,
+      boss: getPublicBoss(room)
+    });
+  }, 1000);
+}
+
+function movePlayer(room, player, now) {
+  if (!player.alive || player.dying) {
+  return;
+}
 
   const playerSpeed =
     player.moveInterval ||
@@ -1012,10 +1054,10 @@ function movePlayer(room, player, now) {
       )
     );
 
-  if (outside || hitsObstacle || hitsSelf || hitsOther) {
-    player.alive = false;
-    return;
-  }
+if (outside || hitsObstacle || hitsSelf || hitsOther) {
+  startPlayerDeath(room, player);
+  return;
+}
 
   player.snake.unshift(head);
 
