@@ -685,12 +685,6 @@ function moveBossSnakeServer(room) {
     return;
   }
 
-  const now = Date.now();
-  if (now - boss.lastMoveTime < boss.currentSpeed) {
-    return;
-  }
-  boss.lastMoveTime = now;
-
   const head = boss.snake[0];
   const bestTarget = getBestBossTargetServer(room);
 
@@ -1033,11 +1027,18 @@ function gameStep(room) {
   }
 
   if (room.level === 6) {
-  moveBossSnakeServer(room);
+    const boss = bossState.get(room.name);
+    const now = Date.now();
 
-  // Check boss biting players
-  checkBossPlayerCollision(room);
-}
+    // Only move boss if enough time has passed based on currentSpeed
+    if (boss && boss.alive && (!boss.lastMoveTime || now - boss.lastMoveTime >= boss.currentSpeed)) {
+      boss.lastMoveTime = now;
+      moveBossSnakeServer(room);
+    }
+
+    // Check boss biting players
+    checkBossPlayerCollision(room);
+  }
 
 const boss = room.level === 6 ? bossState.get(room.name) : null;
 
