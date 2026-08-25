@@ -8,8 +8,15 @@ const GAME_CONFIG = {
   initialLength: 30,              // starting snake length
   initialPosition: { x: 10, y: 5 }, // starting head position
 
-  // Movement & speed
-  speedMs: 120,                   // game loop interval in milliseconds (lower = faster)
+  // ⚡ SPEED SETTINGS (milliseconds per move - lower = faster)
+  speed: {
+    player: 120,        // Player snake speed (offline & online)
+    enemy: 120,         // Enemy AI snakes (levels 1-5)
+    boss: {
+      normal: 60,       // Boss snake normal speed
+      rage: 20          // Boss snake rage speed
+    }
+  },
 
   // Grid & board
   grid: {
@@ -67,7 +74,7 @@ const GAME_CONFIG = {
 boss: {
   enabledInLevel: 6,
   initialLength: 20,    // NEW: boss starting length
-  baseSpeedMs: 40,
+  baseSpeedMs: 60,
   rageSpeedMs: 20,
   rageIntervalMs: 5000,
   rageDurationMs: 3000,

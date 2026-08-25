@@ -111,6 +111,7 @@ let localGameOverShown = false;
 let offlineBlueTimer = null;
 let offlineGreenTimer = null;
 let offlineEnemyTimer = null;
+let enemyMoveTimer = null;
 
 let enemies = [];
 let remoteBoss = null;
@@ -664,14 +665,15 @@ function spawnEnemy() {
 
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
-  const baseSpeed = bossConfig.baseSpeedMs || 120;
+  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
+  const baseSpeed = bossConfig.baseSpeedMs || speedConfig.normal;
 
   // Spawn in middle of board
   const startX = Math.floor(gridWidth / 2);
   const startY = Math.floor(gridHeight / 2);
 
   // Initial length
-  const initialLen = 20;
+    const initialLen = bossConfig.initialLength || 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
@@ -737,7 +739,7 @@ function moveBossSnake() {
   const distance = Math.abs(head.x - bestTarget.x) + Math.abs(head.y - bestTarget.y);
 
   // If player is near, chase; otherwise patrol
-  if (distance < 20) {
+  if (distance < 30) {
     const newDir = getBossChaseDirectionWithAvoidance(head, bestTarget);
     if (newDir) {
       bossSnake.nextDir = newDir;
@@ -1184,8 +1186,8 @@ function stopBossTimers() {
 function activateBossRage(durationMs) {
   if (!bossSnake || !bossSnake.alive) return;
 
-  const bossConfig = window.GAME_CONFIG?.boss || {};
-  const rageSpeed = bossConfig.rageSpeedMs || 90; // faster during rage
+  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
+  const rageSpeed = speedConfig.rage;
 
   bossSnake.rageActive = true;
   bossSnake.currentSpeed = rageSpeed;
@@ -1526,26 +1528,44 @@ function startOfflineAppleTimers() {
   stopOfflineAppleTimers();
 
   const timings = window.GAME_CONFIG?.timings || {
-  blueAppleSpawn: 8000,
-  greenAppleSpawn: 16000,
-  enemySpawn: 20000
-};
+    blueAppleSpawn: 8000,
+    greenAppleSpawn: 16000,
+    enemySpawn: 20000
+  };
 
-offlineBlueTimer = setInterval(() => {
-  if (mode === 'offline' && !isPaused && !localGameOverShown) {
-    food.push(randomFood('blue'));
-    draw();
-  }
-}, timings.blueAppleSpawn);
+  const speedConfig = window.GAME_CONFIG?.speed || {
+    player: 120,
+    enemy: 120,
+    boss: { normal: 60, rage: 20 }
+  };
 
-offlineGreenTimer = setInterval(() => {
-  if (mode === 'offline' && !isPaused && !localGameOverShown) {
-    food.push(randomFood('green'));
-    draw();
-  }
-}, timings.greenAppleSpawn);
+  offlineBlueTimer = setInterval(() => {
+    if (mode === 'offline' && !isPaused && !localGameOverShown) {
+      food.push(randomFood('blue'));
+      draw();
+    }
+  }, timings.blueAppleSpawn);
 
-offlineEnemyTimer = setInterval(() => {
+  offlineGreenTimer = setInterval(() => {
+    if (mode === 'offline' && !isPaused && !localGameOverShown) {
+      food.push(randomFood('green'));
+      draw();
+    }
+  }, timings.greenAppleSpawn);
+
+  offlineEnemyTimer = setInterval(() => {
+    if (
+      mode === 'offline' &&
+      !isPaused &&
+      !localGameOverShown &&
+      selectedLevel !== 6
+    ) {
+      spawnEnemy();
+      draw();
+    }
+  }, timings.enemySpawn);
+  
+  offlineEnemyTimer = setInterval(() => {
   if (
     mode === 'offline' &&
     !isPaused &&
@@ -1558,14 +1578,33 @@ offlineEnemyTimer = setInterval(() => {
 }, timings.enemySpawn);
 }
 
+  // Enemy movement timer (separate from player)
+  enemyMoveTimer = setInterval(() => {
+    if (
+      mode === 'offline' &&
+      !isPaused &&
+      !localGameOverShown &&
+      selectedLevel !== 6
+    ) {
+      for (const enemy of enemies) {
+        moveEnemy(enemy);
+      }
+      enemies = enemies.filter(enemy => enemy.alive);
+      draw();
+    }
+  }, speedConfig.enemy);
+}
+
 function stopOfflineAppleTimers() {
   clearInterval(offlineBlueTimer);
   clearInterval(offlineGreenTimer);
   clearInterval(offlineEnemyTimer);
+  clearInterval(enemyMoveTimer);
 
   offlineBlueTimer = null;
   offlineGreenTimer = null;
   offlineEnemyTimer = null;
+  enemyMoveTimer = null;
 }
 
 function beginSinglePlayer() {
@@ -2585,5 +2624,5 @@ playIntroMusic();
 canvas.width = 360;
 canvas.height = 400;
 
-const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 120;
+const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 60;
 setInterval(gameLoop, gameSpeed);

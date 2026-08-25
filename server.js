@@ -289,9 +289,9 @@ function startFoodTimers(room) {
     const boss = bossState.get(room.name);
 
     if (boss) {
-      const bossConfig = CONFIG.boss;
-const baseSpeed = bossConfig.baseSpeedMs; // no fallback
-const rageSpeed = bossConfig.rageSpeedMs; // no fallback
+      const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
+      const baseSpeed = speedConfig.normal;
+      const rageSpeed = speedConfig.rage;
       const rageInterval = bossConfig.rageIntervalMs || 5000;
       const rageDuration = bossConfig.rageDurationMs || 3000;
 
@@ -416,7 +416,8 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
-  const baseSpeed = bossConfig.baseSpeedMs; // no fallback
+  const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
+  const baseSpeed = bossConfig.baseSpeedMs || speedConfig.normal;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
