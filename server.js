@@ -270,19 +270,10 @@ function stopFoodTimers(room) {
 
   // Clean up BOSS rage timer
   const boss = bossState.get(room.name);
-  if (boss) {
-
-  if (boss.rageTimer) {
+  if (boss && boss.rageTimer) {
     clearInterval(boss.rageTimer);
     boss.rageTimer = null;
   }
-
-  if (boss.flashTimer) {
-    clearInterval(boss.flashTimer);
-    boss.flashTimer = null;
-  }
-
-
 }
 
 function startFoodTimers(room) {
@@ -336,42 +327,8 @@ function startFoodTimers(room) {
 
 
         // START RAGE
-// START RAGE
-boss.rageActive = true;
-boss.currentSpeed = rageSpeed;
-
-let flashCount = 0;
-
-if (boss.flashTimer) {
-  clearInterval(boss.flashTimer);
-}
-
-boss.flashTimer = setInterval(() => {
-
-  if (!boss.rageActive) {
-    clearInterval(boss.flashTimer);
-    boss.flashTimer = null;
-    boss.rageFlash = false;
-    return;
-  }
-
-  boss.rageFlash = !boss.rageFlash;
-
-  broadcastRoom(room, {
-    type: 'state',
-    players: publicPlayers(room),
-    food: room.food,
-    paused: room.paused,
-    level: room.level,
-    boss: {
-      snake: boss.snake,
-      alive: boss.alive,
-      rageActive: true,
-      rageFlash: boss.rageFlash
-    }
-  });
-
-}, 200);
+        boss.rageActive = true;
+        boss.currentSpeed = rageSpeed;
 
 
         broadcastRoom(room, {
@@ -397,14 +354,8 @@ boss.flashTimer = setInterval(() => {
 
 
           // END RAGE
-boss.rageActive = false;
-boss.rageFlash = false;
-boss.currentSpeed = normalSpeed;
-
-if (boss.flashTimer) {
-  clearInterval(boss.flashTimer);
-  boss.flashTimer = null;
-}
+          boss.rageActive = false;
+          boss.currentSpeed = normalSpeed;
 
 
           broadcastRoom(room, {
@@ -469,7 +420,82 @@ if (boss.flashTimer) {
 
   }, CONFIG.timings.greenAppleSpawn);
 }
+function startBossRageTimer(room){
 
+  const boss = bossState.get(room.name);
+
+  if(!boss) return;
+
+
+  const normalSpeed =
+    CONFIG.speed.boss.normal;
+
+  const rageSpeed =
+    CONFIG.speed.boss.rage;
+
+
+  boss.rageTimer = setInterval(()=>{
+
+    if(
+      !room.started ||
+      room.paused ||
+      !boss.alive
+    ){
+      return;
+    }
+
+
+    // RAGE START
+    boss.rageActive = true;
+    boss.currentSpeed = rageSpeed;
+
+
+    broadcastRoom(room,{
+      type:'state',
+      players:publicPlayers(room),
+      food:room.food,
+      paused:room.paused,
+      level:room.level,
+      boss:{
+        snake:boss.snake,
+        alive:boss.alive,
+        rageActive:true
+      }
+    });
+
+
+
+    boss.rageEndTimer=setTimeout(()=>{
+
+
+      if(!boss.alive)return;
+
+
+      // RAGE END
+      boss.rageActive=false;
+      boss.currentSpeed=normalSpeed;
+
+
+      broadcastRoom(room,{
+        type:'state',
+        players:publicPlayers(room),
+        food:room.food,
+        paused:room.paused,
+        level:room.level,
+        boss:{
+          snake:boss.snake,
+          alive:boss.alive,
+          rageActive:false
+        }
+      });
+
+
+    },3000);
+
+
+  },5000);
+
+}
 function startRoom(room) {
   if (room.players.size < 1) {
     return;
@@ -484,6 +510,7 @@ function startRoom(room) {
 
   if (room.level === 6) {
     bossState.set(room.name, createBossSnakeServer(room));
+    startBossRageTimer(room);
   } else {
     bossState.delete(room.name);
   }
@@ -523,19 +550,21 @@ function createBossSnakeServer(room) {
   }
 
   return {
-    snake,
-    dir: 'right',
-    nextDir: 'right',
-    alive: true,
-    grow: 0,
-    baseSpeed,
-    currentSpeed: baseSpeed,
-    lastMoveTime: 0,
-    rageActive: false,
-rageFlash: false,
-patrolTarget: getRandomPatrolTargetServer()
-  };
-}
+  snake,
+  dir:'right',
+  nextDir:'right',
+  alive:true,
+  grow:0,
+  baseSpeed,
+  currentSpeed:baseSpeed,
+  lastMoveTime:0,
+
+  rageActive:false,
+  rageTimer:null,
+  rageEndTimer:null,
+
+  patrolTarget:getRandomPatrolTargetServer()
+};
 
 function getRandomPatrolTargetServer() {
   const corners = [
