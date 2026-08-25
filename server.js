@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
 const WIDTH = CONFIG.grid.width;
 const HEIGHT = CONFIG.grid.height;
 const SIZE = CONFIG.grid.cellSize;
-const TICK = CONFIG.timings.gameLoop;
+const TICK = 20;
 const MAX_PLAYERS = CONFIG.multiplayer.maxPlayersPerRoom;
 
 const COLORS = [
@@ -342,6 +342,7 @@ function startFoodTimers(room) {
 
         boss.rageActive = true;
         boss.currentSpeed = rageSpeed;
+        boss.lastMoveTime = Date.now();
 
         broadcastRoom(room, {
           type: 'state',
@@ -365,6 +366,7 @@ function startFoodTimers(room) {
 
           boss.rageActive = false;
           boss.currentSpeed = boss.baseSpeed;
+          boss.lastMoveTime = Date.now();
 
           broadcastRoom(room, {
             type: 'state',
