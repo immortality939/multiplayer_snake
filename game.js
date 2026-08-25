@@ -5,10 +5,10 @@ if (!window.GAME_CONFIG) {
     grid: { width: 72, height: 80, cellSize: 5, drawSize: 5 },
     initialPosition: { x: 10, y: 5 },
     initialLength: 3,
-    speed: { player: 120, enemy: 120, boss: { normal: 60, rage: 20 } },
+    speed: { player: 120, enemy: 120, boss: { normal: 120, rage: 60 } },
     timings: { gameLoop: 120, blueAppleSpawn: 8000, greenAppleSpawn: 16000, enemySpawn: 20000 },
     foodGrowth: { red: 2, blue: 8, green: 15 },
-    boss: { baseSpeedMs: 60, rageSpeedMs: 20, rageIntervalMs: 5000, rageDurationMs: 3000, initialLength: 20, baseColor: '#b5c6ff', rageColor: '#ff4444', highlightColor: '#ef4444' },
+    boss: { baseSpeedMs: 120, rageSpeedMs: 60, rageIntervalMs: 5000, rageDurationMs: 3000, initialLength: 20, baseColor: '#b5c6ff', rageColor: '#ff4444', highlightColor: '#ef4444' },
     audio: { introVolume: 0.35, bgVolume: 0.35, gameOverVolume: 1.0 }
   };
   console.warn('GAME_CONFIG not found, using defaults');
@@ -75,7 +75,7 @@ const controlButtons = document.querySelectorAll('.controls button');
 const introMusic = document.getElementById('introMusic');
 const bgMusic = document.getElementById('bgMusic');
 const gameOverSound = document.getElementById('gameOverSound');
-
+const bossMusic = document.getElementById('bossMusic');
 const gameBackground = new Image();
 gameBackground.src = 'Sbackground.jpg';
 
@@ -189,6 +189,23 @@ function playGameMusic() {
   bgMusic.volume = window.GAME_CONFIG?.audio?.bgVolume || 0.35;
   bgMusic.loop = true;
   bgMusic.play().catch(() => {});
+}
+
+function playBossMusic() {
+  if (!bossMusic) return;
+
+  stopGameMusic();
+  bossMusic.volume = window.GAME_CONFIG?.audio?.bgVolume || 0.35;
+  bossMusic.currentTime = 0;
+  bossMusic.loop = true;
+  bossMusic.play().catch(() => {});
+}
+
+function stopBossMusic() {
+  if (!bossMusic) return;
+
+  bossMusic.pause();
+  bossMusic.currentTime = 0;
 }
 
 function stopGameMusic() {
@@ -370,9 +387,15 @@ function handleServerMessage(data) {
     size = data.size || size;
 
     stopOfflineAppleTimers();
-    stopIntroMusic();
-    playGameMusic();
-    showScreen(gameScreen);
+stopIntroMusic();
+
+if (multiplayerLevel === 6) {
+  playBossMusic();
+} else {
+  playGameMusic();
+}
+
+showScreen(gameScreen);
     updatePauseButton();
     setStatus(`Level ${multiplayerLevel}`);
     draw();
@@ -682,8 +705,8 @@ function spawnEnemy() {
 
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
-  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
-  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 60;
+  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 120, rage: 60 };
+  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
 
   // Spawn in middle of board
   const startX = Math.floor(gridWidth / 2);
@@ -1686,7 +1709,11 @@ function startSelectedLevel(level) {
   players = {};
 
   stopIntroMusic();
+  if (level === 6) {
+  playBossMusic();
+} else {
   playGameMusic();
+}
 
   resetLocalGame();
   startOfflineAppleTimers();
