@@ -380,7 +380,41 @@ function startFoodTimers(room) {
     }
   }
 
+function startBossTimers() {
+  stopBossTimers();
 
+  const bossConfig = window.GAME_CONFIG?.boss || {};
+  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
+  const rageInterval = bossConfig.rageIntervalMs || 5000;
+  const rageDuration = bossConfig.rageDurationMs || 3000;
+  const blinkInterval = 100; // fast blink
+
+  bossTimers.rage = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      return;
+    }
+
+    activateBossRage(rageDuration);
+  }, rageInterval);
+
+  bossTimers.blink = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+      return;
+    }
+    // Blink handled in drawBossSnake()
+  }, blinkInterval);
+
+  // Boss movement timer
+  bossMoveTimer = setInterval(() => {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      return;
+    }
+
+    moveBossSnake();
+    checkBossPlayerCollision();
+    draw();
+  }, bossSnake.currentSpeed);
+}
 
   // BLUE APPLE TIMER
   room.blueTimer = setInterval(() => {
