@@ -459,8 +459,8 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
-  const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
-  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 60;
+  const speedConfig = CONFIG.speed?.boss || { normal: 120, rage: 60 };
+  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
