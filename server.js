@@ -288,14 +288,8 @@ function startFoodTimers(room) {
 
       const bossConfig = CONFIG.boss;
 
-      const normalSpeed =
-        CONFIG.speed?.boss?.normal ||
-        bossConfig.baseSpeedMs ||
-        60;
-
-      const rageSpeed =
-        CONFIG.speed?.boss?.rage ||
-        20;
+      const normalSpeed = CONFIG.speed.boss.normal;
+      const rageSpeed = CONFIG.speed.boss.rage;
 
       const rageInterval =
         bossConfig.rageIntervalMs ||
@@ -380,41 +374,6 @@ function startFoodTimers(room) {
     }
   }
 
-function startBossTimers() {
-  stopBossTimers();
-
-  const bossConfig = window.GAME_CONFIG?.boss || {};
-  const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 60, rage: 20 };
-  const rageInterval = bossConfig.rageIntervalMs || 5000;
-  const rageDuration = bossConfig.rageDurationMs || 3000;
-  const blinkInterval = 100; // fast blink
-
-  bossTimers.rage = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
-      return;
-    }
-
-    activateBossRage(rageDuration);
-  }, rageInterval);
-
-  bossTimers.blink = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
-      return;
-    }
-    // Blink handled in drawBossSnake()
-  }, blinkInterval);
-
-  // Boss movement timer
-  bossMoveTimer = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
-      return;
-    }
-
-    moveBossSnake();
-    checkBossPlayerCollision();
-    draw();
-  }, bossSnake.currentSpeed);
-}
 
   // BLUE APPLE TIMER
   room.blueTimer = setInterval(() => {
@@ -496,8 +455,7 @@ function startRoom(room) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
-  const speedConfig = CONFIG.speed?.boss || { normal: 60, rage: 20 };
-  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 60;
+  const baseSpeed = CONFIG.speed.boss.normal;
 
   const startX = Math.floor(WIDTH / 2);
   const startY = 10;
