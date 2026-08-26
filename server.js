@@ -441,7 +441,7 @@ function startRoom(room) {
   room.started = true;
   resetRoomGame(room);
 
-  if (room.level === 6) {
+  if (room.level === CONFIG.boss.enabledInLevel) {
     bossState.set(room.name, createBossSnakeServer(room));
   } else {
     bossState.delete(room.name);
@@ -449,7 +449,10 @@ function startRoom(room) {
 
   startFoodTimers(room);
 
-  const boss = room.level === 6 ? bossState.get(room.name) : null;
+  const boss =
+  room.level === CONFIG.boss.enabledInLevel
+    ? bossState.get(room.name)
+    : null;
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -474,13 +477,29 @@ function createBossSnakeServer(room) {
   const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
 
   const startX = Math.floor(WIDTH / 2);
-  const startY = 10;
-    const initialLen = bossConfig.initialLength || 20;
+const startY = Math.floor(HEIGHT / 2);
+const initialLen = bossConfig.initialLength || 20;
 
-  const snake = [];
-  for (let i = 0; i < initialLen; i++) {
-    snake.push({ x: startX - i, y: startY });
-  }
+const levelObstacles = createLevelObstaclesForLevel(room.level);
+
+let safeStartY = startY;
+
+while (
+  levelObstacles.some(
+    block => block.x === startX && block.y === safeStartY
+  )
+) {
+  safeStartY++;
+}
+
+const snake = [];
+
+for (let i = 0; i < initialLen; i++) {
+  snake.push({
+    x: startX - i,
+    y: safeStartY
+  });
+}
 
   return {
     snake,
