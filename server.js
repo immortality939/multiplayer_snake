@@ -439,13 +439,20 @@ function startRoom(room) {
   }
 
   room.started = true;
-  resetRoomGame(room);
 
-  if (room.level === 6) {
-    bossState.set(room.name, createBossSnakeServer(room));
-  } else {
-    bossState.delete(room.name);
-  }
+stopFoodTimers(room);
+bossState.delete(room.name);
+
+resetRoomGame(room);
+
+if (room.level === CONFIG.boss.enabledInLevel) {
+  bossState.set(
+    room.name,
+    createBossSnakeServer(room)
+  );
+} else {
+  bossState.delete(room.name);
+}
 
   startFoodTimers(room);
 

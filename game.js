@@ -382,8 +382,15 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'gameStart') {
+    stopOfflineAppleTimers();
+    stopBossTimers();
+
     mode = 'online';
+    localGameOverShown = false;
+    localAlive = true;
     isPaused = Boolean(data.paused);
+
+    bossSnake = null;
 
     multiplayerLevel = data.level || 1;
     selectedLevel = multiplayerLevel;
@@ -1740,9 +1747,24 @@ function startSelectedLevel(level) {
   showScreen(gameScreen);
 }
 function beginMultiplayerMenu() {
+  stopOfflineAppleTimers();
+  stopBossTimers();
+
+  localGameOverShown = false;
+  localAlive = true;
+  isPaused = false;
+
+  enemies = [];
+  bossSnake = null;
+  remoteBoss = null;
+  players = {};
+
+  stopGameMusic();
+  stopBossMusic();
+  playIntroMusic();
+
   mode = 'multiplayer-menu';
 
-  playIntroMusic();
   showScreen(multiplayerMenu);
   connectSocket();
 }
@@ -2191,13 +2213,22 @@ function createLevelObstacles(level = selectedLevel) {
   return result;
 }
 function showOfflineGameOver() {
-  if (localGameOverShown) return;
+  if (localGameOverShown) {
+    return;
+  }
 
   localGameOverShown = true;
   localAlive = false;
 
   stopOfflineAppleTimers();
+  stopBossTimers();
+
+  bossSnake = null;
+  bossRageActive = false;
+  bossRageEndTime = 0;
+
   stopGameMusic();
+  stopBossMusic();
   playGameOverSound();
 
   setStatus('Game Over');
