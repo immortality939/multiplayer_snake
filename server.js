@@ -838,6 +838,9 @@ function checkBossPlayerCollision(room) {
         if (hitIndex === 0) {
           player.alive = false;
           player.snake = [];
+          
+          // Check if all players are dead
+          checkAllPlayersDead(room);
         }
         // Player body bitten = cut snake
         else {
