@@ -41,7 +41,7 @@ const GAME_CONFIG = {
   // Timings (milliseconds)
   timings: {
     gameLoop: 120,
-    blueAppleSpawn: 8000,
+    blueAppleSpawn: 8,
     greenAppleSpawn: 16000,
     enemySpawn: 20000
   },
