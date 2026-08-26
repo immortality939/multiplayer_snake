@@ -477,16 +477,32 @@ if (room.level === CONFIG.boss.enabledInLevel) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
-  const speedConfig = CONFIG.speed?.boss || { normal: 120, rage: 60 };
-  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
+  const speedConfig =
+    CONFIG.speed?.boss || { normal: 120, rage: 60 };
 
-  const startX = Math.floor(WIDTH / 2);
-  const startY = 10;
-    const initialLen = bossConfig.initialLength || 20;
+  const baseSpeed =
+    speedConfig.normal ||
+    bossConfig.baseSpeedMs ||
+    120;
+
+  const initialLen =
+    bossConfig.initialLength || 20;
+
+  // Center the entire boss on the multiplayer board
+  const startX =
+    Math.floor(WIDTH / 2) +
+    Math.floor(initialLen / 2);
+
+  const startY =
+    Math.floor(HEIGHT / 2);
 
   const snake = [];
+
   for (let i = 0; i < initialLen; i++) {
-    snake.push({ x: startX - i, y: startY });
+    snake.push({
+      x: startX - i,
+      y: startY
+    });
   }
 
   return {
