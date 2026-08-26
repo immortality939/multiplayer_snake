@@ -62,10 +62,90 @@ function normalizeRoomName(value) {
   return cleanText(value, 'Room').toLowerCase();
 }
 
-function randomFood(type = 'red') {
+function randomFood(type = 'red', room = null) {
+  const freeCells = [];
+  const level = room?.level || 1;
+
+  const obstacles =
+    createLevelObstaclesForLevel(level);
+
+  const occupied = (x, y) => {
+    const onObstacle = obstacles.some((block) =>
+      block.x === x &&
+      block.y === y
+    );
+
+    if (onObstacle) {
+      return true;
+    }
+
+    if (room) {
+      for (const player of room.players.values()) {
+        if (!player.snake) {
+          continue;
+        }
+
+        const onPlayer = player.snake.some((part) =>
+          part.x === x &&
+          part.y === y
+        );
+
+        if (onPlayer) {
+          return true;
+        }
+      }
+
+      const boss = bossState.get(room.name);
+
+      if (boss && boss.snake) {
+        const onBoss = boss.snake.some((part) =>
+          part.x === x &&
+          part.y === y
+        );
+
+        if (onBoss) {
+          return true;
+        }
+      }
+
+      const alreadyFood = room.food.some((apple) =>
+        apple.x === x &&
+        apple.y === y
+      );
+
+      if (alreadyFood) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Keep apples away from the outside border.
+  for (let x = 1; x < WIDTH - 1; x++) {
+    for (let y = 1; y < HEIGHT - 1; y++) {
+      if (!occupied(x, y)) {
+        freeCells.push({ x, y });
+      }
+    }
+  }
+
+  if (!freeCells.length) {
+    return {
+      x: Math.floor(WIDTH / 2),
+      y: Math.floor(HEIGHT / 2),
+      type
+    };
+  }
+
+  const position =
+    freeCells[
+      Math.floor(Math.random() * freeCells.length)
+    ];
+
   return {
-    x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT),
+    x: position.x,
+    y: position.y,
     type
   };
 }
