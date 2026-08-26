@@ -222,7 +222,7 @@ function createRoom(roomName, player) {
     started: false,
     paused: false,
     level: 1,
-    food: [randomFood('red')],
+    food: [],
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -232,6 +232,8 @@ function createRoom(roomName, player) {
   player.roomName = roomName;
 
   rooms.set(roomName, room);
+
+  room.food = [randomFood('red', room)];
 
   return room;
 }
@@ -334,7 +336,11 @@ function setDirection(player, direction) {
 }
 
 function resetRoomGame(room) {
-  room.food = [randomFood('red')];
+      player.lastMoveTime = 0;
+  }
+
+  room.food = [randomFood('red', room)];
+}
   room.paused = false;
 
   for (const player of room.players.values()) {
@@ -479,7 +485,12 @@ function startFoodTimers(room) {
       return;
     }
 
-    room.food.push(randomFood('blue'));
+    const blueFood =
+  randomFood('blue', room);
+
+if (blueFood) {
+  room.food.push(blueFood);
+}
 
     broadcastRoom(room, {
       type: 'state',
@@ -496,7 +507,12 @@ function startFoodTimers(room) {
       return;
     }
 
-    room.food.push(randomFood('green'));
+    const greenFood =
+  randomFood('green', room);
+
+if (greenFood) {
+  room.food.push(greenFood);
+}
 
     broadcastRoom(room, {
       type: 'state',
@@ -1184,7 +1200,14 @@ if (outside || hitsObstacle || hitsSelf || hitsOther) {
     }
 
     if (eatenApple.type === 'red') {
-      room.food[foodIndex] = randomFood('red');
+      const replacementFood =
+  randomFood('red', room);
+
+if (replacementFood) {
+  room.food[foodIndex] = replacementFood;
+} else {
+  room.food.splice(foodIndex, 1);
+}
     } else {
       room.food.splice(foodIndex, 1);
     }
