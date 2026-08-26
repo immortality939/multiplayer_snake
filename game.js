@@ -165,14 +165,20 @@ function setStatus(text) {
 function playIntroMusic() {
   if (!introMusic) return;
 
-  introMusic.volume = window.GAME_CONFIG?.audio?.introVolume || 0.35;
+  stopGameMusic();
+  stopBossMusic();
 
-  const attempt = introMusic.play();
+  introMusic.volume =
+    window.GAME_CONFIG?.audio?.introVolume || 0.35;
 
-  if (attempt !== undefined) {
-    attempt.catch(() => {
-      console.log('Intro music requires user interaction.');
-    });
+  if (introMusic.paused) {
+    const attempt = introMusic.play();
+
+    if (attempt !== undefined) {
+      attempt.catch(() => {
+        console.log('Intro music requires user interaction.');
+      });
+    }
   }
 }
 
@@ -186,19 +192,33 @@ function stopIntroMusic() {
 function playGameMusic() {
   if (!bgMusic) return;
 
-  bgMusic.volume = window.GAME_CONFIG?.audio?.bgVolume || 0.35;
+  stopIntroMusic();
+  stopBossMusic();
+
+  bgMusic.volume =
+    window.GAME_CONFIG?.audio?.bgVolume || 0.35;
+
   bgMusic.loop = true;
-  bgMusic.play().catch(() => {});
+
+  if (bgMusic.paused) {
+    bgMusic.play().catch(() => {});
+  }
 }
 
 function playBossMusic() {
   if (!bossMusic) return;
 
+  stopIntroMusic();
   stopGameMusic();
-  bossMusic.volume = window.GAME_CONFIG?.audio?.bgVolume || 0.35;
-  bossMusic.currentTime = 0;
+
+  bossMusic.volume =
+    window.GAME_CONFIG?.audio?.bgVolume || 0.35;
+
   bossMusic.loop = true;
-  bossMusic.play().catch(() => {});
+
+  if (bossMusic.paused) {
+    bossMusic.play().catch(() => {});
+  }
 }
 
 function stopBossMusic() {
@@ -1860,8 +1880,12 @@ multiplayerBtn.addEventListener('click', beginMultiplayerMenu);
 
 backToMenuBtn.addEventListener('click', () => {
   stopIntroMusic();
-  showScreen(mainMenu);
+  stopGameMusic();
+  stopBossMusic();
+
   mode = 'menu';
+  showScreen(mainMenu);
+  playIntroMusic();
 });
 
 createRoomBtn.addEventListener('click', createRoom);
@@ -2238,9 +2262,18 @@ restartBtn.addEventListener('click', () => {
     return;
   }
 
+  stopGameMusic();
+  stopIntroMusic();
+  stopBossMusic();
+
   resetLocalGame();
   startOfflineAppleTimers();
-  playGameMusic();
+
+  if (selectedLevel === 6) {
+    playBossMusic();
+  } else {
+    playGameMusic();
+  }
 });
 
 menuBtn.addEventListener('click', () => {
@@ -2250,7 +2283,9 @@ menuBtn.addEventListener('click', () => {
   }
 
   stopOfflineAppleTimers();
-  stopGameMusic();
+stopGameMusic();
+stopBossMusic();
+stopIntroMusic();
 
   if (gameOverSound) {
     gameOverSound.pause();
@@ -2313,16 +2348,20 @@ controlButtons.forEach((button) => {
 
     button.classList.add('pressed');
 
-    if (
-      mode === 'offline' ||
-      mode === 'online'
-    ) {
-      if (mode === 'offline') {
-        playGameMusic();
-      }
-
-      sendDirection(direction);
+if (
+  mode === 'offline' ||
+  mode === 'online'
+) {
+  if (mode === 'offline') {
+    if (selectedLevel === 6) {
+      playBossMusic();
+    } else {
+      playGameMusic();
     }
+  }
+
+  sendDirection(direction);
+}
   });
 
   button.addEventListener('pointerup', () => {
