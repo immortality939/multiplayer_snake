@@ -62,10 +62,58 @@ function normalizeRoomName(value) {
   return cleanText(value, 'Room').toLowerCase();
 }
 
-function randomFood(type = 'red') {
+function randomFood(type = 'red', room = null) {
+  const obstacles =
+    createLevelObstaclesForLevel(room?.level || 1);
+
+  const blocked = new Set();
+
+  for (const obstacle of obstacles) {
+    blocked.add(`${obstacle.x},${obstacle.y}`);
+  }
+
+  if (room) {
+    for (const player of room.players.values()) {
+      for (const segment of player.snake || []) {
+        blocked.add(`${segment.x},${segment.y}`);
+      }
+    }
+
+    for (const apple of room.food || []) {
+      blocked.add(`${apple.x},${apple.y}`);
+    }
+
+    const boss = bossState.get(room.name);
+
+    if (boss) {
+      for (const segment of boss.snake || []) {
+        blocked.add(`${segment.x},${segment.y}`);
+      }
+    }
+  }
+
+  const availableCells = [];
+
+  for (let x = 1; x < WIDTH - 1; x++) {
+    for (let y = 1; y < HEIGHT - 1; y++) {
+      if (!blocked.has(`${x},${y}`)) {
+        availableCells.push({ x, y });
+      }
+    }
+  }
+
+  if (availableCells.length === 0) {
+    return null;
+  }
+
+  const position =
+    availableCells[
+      Math.floor(Math.random() * availableCells.length)
+    ];
+
   return {
-    x: Math.floor(Math.random() * WIDTH),
-    y: Math.floor(Math.random() * HEIGHT),
+    x: position.x,
+    y: position.y,
     type
   };
 }
@@ -142,7 +190,7 @@ function createRoom(roomName, player) {
     started: false,
     paused: false,
     level: 1,
-    food: [randomFood('red')],
+    food: [],
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -152,7 +200,7 @@ function createRoom(roomName, player) {
   player.roomName = roomName;
 
   rooms.set(roomName, room);
-
+room.food = [randomFood('red', room)].filter(Boolean);
   return room;
 }
 
@@ -254,7 +302,7 @@ function setDirection(player, direction) {
 }
 
 function resetRoomGame(room) {
-  room.food = [randomFood('red')];
+  room.food = [randomFood('red', room)].filter(Boolean);
   room.paused = false;
 
   for (const player of room.players.values()) {
@@ -399,7 +447,11 @@ function startFoodTimers(room) {
       return;
     }
 
-    room.food.push(randomFood('blue'));
+    const blueFood = randomFood('blue', room);
+
+if (blueFood) {
+  room.food.push(blueFood);
+}
 
     broadcastRoom(room, {
       type: 'state',
@@ -416,7 +468,11 @@ function startFoodTimers(room) {
       return;
     }
 
-    room.food.push(randomFood('green'));
+    const greenFood = randomFood('green', room);
+
+if (greenFood) {
+  room.food.push(greenFood);
+}
 
     broadcastRoom(room, {
       type: 'state',
@@ -1100,7 +1156,13 @@ if (outside || hitsObstacle || hitsSelf || hitsOther) {
     }
 
     if (eatenApple.type === 'red') {
-      room.food[foodIndex] = randomFood('red');
+      const replacementFood = randomFood('red', room);
+
+if (replacementFood) {
+  room.food[foodIndex] = replacementFood;
+} else {
+  room.food.splice(foodIndex, 1);
+}
     } else {
       room.food.splice(foodIndex, 1);
     }
