@@ -65,83 +65,53 @@ function normalizeRoomName(value) {
 function randomFood(type = 'red', room = null) {
   const freeCells = [];
   const level = room?.level || 1;
+  const obstacles = createLevelObstaclesForLevel(level);
 
-  const obstacles =
-    createLevelObstaclesForLevel(level);
+  const blocked = new Set();
 
-  const occupied = (x, y) => {
-    const onObstacle = obstacles.some((block) =>
-      block.x === x &&
-      block.y === y
-    );
-
-    if (onObstacle) {
-      return true;
-    }
-
-    if (room) {
-      for (const player of room.players.values()) {
-        if (!player.snake) {
-          continue;
-        }
-
-        const onPlayer = player.snake.some((part) =>
-          part.x === x &&
-          part.y === y
-        );
-
-        if (onPlayer) {
-          return true;
-        }
-      }
-
-      const boss = bossState.get(room.name);
-
-      if (boss && boss.snake) {
-        const onBoss = boss.snake.some((part) =>
-          part.x === x &&
-          part.y === y
-        );
-
-        if (onBoss) {
-          return true;
-        }
-      }
-
-      const alreadyFood = room.food.some((apple) =>
-        apple.x === x &&
-        apple.y === y
-      );
-
-      if (alreadyFood) {
-        return true;
+  function addBlocked(cells) {
+    for (const cell of cells || []) {
+      if (
+        Number.isInteger(cell.x) &&
+        Number.isInteger(cell.y)
+      ) {
+        blocked.add(`${cell.x},${cell.y}`);
       }
     }
+  }
 
-    return false;
-  };
+  addBlocked(obstacles);
 
-  // Keep apples away from the outside border.
-  for (let x = 1; x < WIDTH - 1; x++) {
-    for (let y = 1; y < HEIGHT - 1; y++) {
-      if (!occupied(x, y)) {
+  if (room) {
+    for (const player of room.players.values()) {
+      addBlocked(player.snake);
+    }
+
+    const boss = bossState.get(room.name);
+
+    if (boss) {
+      addBlocked(boss.snake);
+    }
+
+    addBlocked(room.food);
+  }
+
+  // x = 1 through WIDTH - 2 and
+  // y = 1 through HEIGHT - 2 keeps food off the outer border.
+  for (let x = 1; x <= WIDTH - 2; x++) {
+    for (let y = 1; y <= HEIGHT - 2; y++) {
+      if (!blocked.has(`${x},${y}`)) {
         freeCells.push({ x, y });
       }
     }
   }
 
-  if (!freeCells.length) {
-    return {
-      x: Math.floor(WIDTH / 2),
-      y: Math.floor(HEIGHT / 2),
-      type
-    };
+  if (freeCells.length === 0) {
+    return null;
   }
 
   const position =
-    freeCells[
-      Math.floor(Math.random() * freeCells.length)
-    ];
+    freeCells[Math.floor(Math.random() * freeCells.length)];
 
   return {
     x: position.x,
@@ -336,12 +306,29 @@ function setDirection(player, direction) {
 }
 
 function resetRoomGame(room) {
-      player.lastMoveTime = 0;
+  room.paused = false;
+  room.food = [];
+
+  for (const player of room.players.values()) {
+    player.dir = getSpawnDirection(player.id);
+    player.nextDir = getSpawnDirection(player.id);
+
+    if (player.deathTimer) {
+      clearTimeout(player.deathTimer);
+      player.deathTimer = null;
+    }
+
+    player.alive = true;
+    player.dying = false;
+    player.score = 0;
+    player.grow = 0;
+    player.snake = createSnake(player.id);
+    player.moveInterval = CONFIG.speed?.player || 120;
+    player.lastMoveTime = 0;
   }
 
   room.food = [randomFood('red', room)];
 }
-  room.paused = false;
 
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
