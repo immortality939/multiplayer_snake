@@ -62,60 +62,10 @@ function normalizeRoomName(value) {
   return cleanText(value, 'Room').toLowerCase();
 }
 
-function randomFood(type = 'red', room = null) {
-  const freeCells = [];
-  const level = room?.level || 1;
-  const obstacles = createLevelObstaclesForLevel(level);
-
-  const blocked = new Set();
-
-  function addBlocked(cells) {
-    for (const cell of cells || []) {
-      if (
-        Number.isInteger(cell.x) &&
-        Number.isInteger(cell.y)
-      ) {
-        blocked.add(`${cell.x},${cell.y}`);
-      }
-    }
-  }
-
-  addBlocked(obstacles);
-
-  if (room) {
-    for (const player of room.players.values()) {
-      addBlocked(player.snake);
-    }
-
-    const boss = bossState.get(room.name);
-
-    if (boss) {
-      addBlocked(boss.snake);
-    }
-
-    addBlocked(room.food);
-  }
-
-  // x = 1 through WIDTH - 2 and
-  // y = 1 through HEIGHT - 2 keeps food off the outer border.
-  for (let x = 1; x <= WIDTH - 2; x++) {
-    for (let y = 1; y <= HEIGHT - 2; y++) {
-      if (!blocked.has(`${x},${y}`)) {
-        freeCells.push({ x, y });
-      }
-    }
-  }
-
-  if (freeCells.length === 0) {
-    return null;
-  }
-
-  const position =
-    freeCells[Math.floor(Math.random() * freeCells.length)];
-
+function randomFood(type = 'red') {
   return {
-    x: position.x,
-    y: position.y,
+    x: Math.floor(Math.random() * WIDTH),
+    y: Math.floor(Math.random() * HEIGHT),
     type
   };
 }
@@ -192,7 +142,7 @@ function createRoom(roomName, player) {
     started: false,
     paused: false,
     level: 1,
-    food: [],
+    food: [randomFood('red')],
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -202,8 +152,6 @@ function createRoom(roomName, player) {
   player.roomName = roomName;
 
   rooms.set(roomName, room);
-
-  room.food = [randomFood('red', room)];
 
   return room;
 }
@@ -306,29 +254,8 @@ function setDirection(player, direction) {
 }
 
 function resetRoomGame(room) {
+  room.food = [randomFood('red')];
   room.paused = false;
-  room.food = [];
-
-  for (const player of room.players.values()) {
-    player.dir = getSpawnDirection(player.id);
-    player.nextDir = getSpawnDirection(player.id);
-
-    if (player.deathTimer) {
-      clearTimeout(player.deathTimer);
-      player.deathTimer = null;
-    }
-
-    player.alive = true;
-    player.dying = false;
-    player.score = 0;
-    player.grow = 0;
-    player.snake = createSnake(player.id);
-    player.moveInterval = CONFIG.speed?.player || 120;
-    player.lastMoveTime = 0;
-  }
-
-  room.food = [randomFood('red', room)];
-}
 
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
@@ -472,12 +399,7 @@ function startFoodTimers(room) {
       return;
     }
 
-    const blueFood =
-  randomFood('blue', room);
-
-if (blueFood) {
-  room.food.push(blueFood);
-}
+    room.food.push(randomFood('blue'));
 
     broadcastRoom(room, {
       type: 'state',
@@ -494,12 +416,7 @@ if (blueFood) {
       return;
     }
 
-    const greenFood =
-  randomFood('green', room);
-
-if (greenFood) {
-  room.food.push(greenFood);
-}
+    room.food.push(randomFood('green'));
 
     broadcastRoom(room, {
       type: 'state',
@@ -522,20 +439,13 @@ function startRoom(room) {
   }
 
   room.started = true;
+  resetRoomGame(room);
 
-stopFoodTimers(room);
-bossState.delete(room.name);
-
-resetRoomGame(room);
-
-if (room.level === CONFIG.boss.enabledInLevel) {
-  bossState.set(
-    room.name,
-    createBossSnakeServer(room)
-  );
-} else {
-  bossState.delete(room.name);
-}
+  if (room.level === 6) {
+    bossState.set(room.name, createBossSnakeServer(room));
+  } else {
+    bossState.delete(room.name);
+  }
 
   startFoodTimers(room);
 
@@ -560,32 +470,16 @@ if (room.level === CONFIG.boss.enabledInLevel) {
 
 function createBossSnakeServer(room) {
   const bossConfig = CONFIG.boss;
-  const speedConfig =
-    CONFIG.speed?.boss || { normal: 120, rage: 60 };
+  const speedConfig = CONFIG.speed?.boss || { normal: 120, rage: 60 };
+  const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
 
-  const baseSpeed =
-    speedConfig.normal ||
-    bossConfig.baseSpeedMs ||
-    120;
-
-  const initialLen =
-    bossConfig.initialLength || 20;
-
-  // Center the entire boss on the multiplayer board
-  const startX =
-    Math.floor(WIDTH / 2) +
-    Math.floor(initialLen / 2);
-
-  const startY =
-    Math.floor(HEIGHT / 2);
+  const startX = Math.floor(WIDTH / 2);
+  const startY = 10;
+    const initialLen = bossConfig.initialLength || 20;
 
   const snake = [];
-
   for (let i = 0; i < initialLen; i++) {
-    snake.push({
-      x: startX - i,
-      y: startY
-    });
+    snake.push({ x: startX - i, y: startY });
   }
 
   return {
@@ -1187,14 +1081,7 @@ if (outside || hitsObstacle || hitsSelf || hitsOther) {
     }
 
     if (eatenApple.type === 'red') {
-      const replacementFood =
-  randomFood('red', room);
-
-if (replacementFood) {
-  room.food[foodIndex] = replacementFood;
-} else {
-  room.food.splice(foodIndex, 1);
-}
+      room.food[foodIndex] = randomFood('red');
     } else {
       room.food.splice(foodIndex, 1);
     }
