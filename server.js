@@ -1309,7 +1309,7 @@ function startPlayerDeath(room, player) {
 }
 
 function checkAllPlayersDead(room) {
-  if (!room.started || room.winnerShown) {
+  if (!room.started || room.winnerShown || room.level !== CONFIG.boss.enabledInLevel) {
     return;
   }
 
@@ -1321,7 +1321,7 @@ function checkAllPlayersDead(room) {
     );
 
   if (alivePlayers.length === 0) {
-    // All players dead - end game immediately
+    // All players dead - end game immediately (Level 6 only)
     room.winnerShown = true;
     room.paused = true;
 

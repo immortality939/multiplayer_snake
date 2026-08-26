@@ -707,17 +707,21 @@ function handleServerMessage(data) {
 }
 
   if (data.type === 'winner') {
-    // Show winner message
+  // Only show winner message for Level 6
+  if (multiplayerLevel === 6) {
     showWinnerMessage(data.winnerName || 'NO WINNER');
-    return;
   }
-
-  if (data.type === 'noWinner') {
-    // Show no winner message
-    showWinnerMessage('NO WINNER');
-    return;
-  }
+  return;
 }
+
+if (data.type === 'noWinner') {
+  // Only show no winner message for Level 6
+  if (multiplayerLevel === 6) {
+    showWinnerMessage('NO WINNER');
+  }
+  return;
+}
+
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';
