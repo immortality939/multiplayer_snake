@@ -1353,34 +1353,46 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'restart') {
-        const player = client.player;
-        const room = player && getRoom(player.roomName);
+  const player = client.player;
+  const room = player && getRoom(player.roomName);
 
-        if (!room || !room.started || !player.host) {
-          return;
+  if (!room || !room.started || !player.host) {
+    return;
+  }
+
+  stopFoodTimers(room);
+  bossState.delete(room.name);
+
+  resetRoomGame(room);
+
+  if (room.level === CONFIG.boss.enabledInLevel) {
+    bossState.set(
+      room.name,
+      createBossSnakeServer(room)
+    );
+  }
+
+  startFoodTimers(room);
+
+  const boss = bossState.get(room.name);
+
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused,
+    level: room.level,
+    boss: boss
+      ? {
+          snake: boss.snake,
+          alive: boss.alive,
+          rageActive: boss.rageActive
         }
+      : null
+  });
 
-        resetRoomGame(room);
-
-        if (room.level === 6) {
-          bossState.set(room.name, createBossSnakeServer(room));
-        } else {
-          bossState.delete(room.name);
-        }
-
-        startFoodTimers(room);
-
-                broadcastRoom(room, {
-          type: 'state',
-          players: publicPlayers(room),
-          food: room.food,
-          paused: room.paused,
-          level: room.level,
-          boss: getPublicBoss(room)
-        });
-
-        return;
-      }
+  return;
+}
 
       if (data.type === 'dir') {
         const player = client.player;
