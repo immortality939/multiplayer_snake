@@ -621,8 +621,6 @@ function handleServerMessage(data) {
   localGameOverShown = false;
   localAlive = true;
 
-  isPaused = true; // Start paused during intro message
-
   multiplayerLevel = data.level || 1;
   selectedLevel = multiplayerLevel;
   obstacles = createLevelObstacles(selectedLevel);
@@ -662,8 +660,13 @@ function handleServerMessage(data) {
   hideWinnerMessage();
   stopCountdown();
 
-  // Show intro message for 4 seconds
-  showIntroMessage(data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE');
+  // Only show intro message and pause for Level 6
+  if (multiplayerLevel === 6) {
+    isPaused = data.paused; // Should be true for Level 6
+    showIntroMessage(data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE');
+  } else {
+    isPaused = data.paused; // Should be false for Levels 1-5
+  }
 
   draw();
   return;
