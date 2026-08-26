@@ -93,6 +93,14 @@ let isPaused = false;
 
 let players = {};
 
+// Countdown and winner display
+let countdownValue = 60;
+let countdownTimerInterval = null;
+let countdownElement = null;
+let winnerMessageElement = null;
+let introMessageElement = null;
+let introMessageTimeout = null;
+
 let food = [
   {
     x: 10,
@@ -148,6 +156,113 @@ function showScreen(screen) {
   gameScreen.classList.add('hidden');
 
   screen.classList.remove('hidden');
+
+  // Create countdown and winner message elements if not already created
+  if (screen.id === 'gameScreen') {
+    createCountdownAndWinnerElements();
+  }
+}
+
+function createCountdownAndWinnerElements() {
+  if (countdownElement) return; // already created
+
+  // Countdown element
+  countdownElement = document.createElement('div');
+  countdownElement.id = 'countdownDisplay';
+  countdownElement.style.cssText = `
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #38bdf8;
+    border-radius: 8px;
+    padding: 6px 14px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 100;
+    display: none;
+  `;
+  countdownElement.textContent = '60';
+
+  const canvasWrap = document.querySelector('.canvas-wrap');
+  if (canvasWrap) {
+    canvasWrap.appendChild(countdownElement);
+  }
+
+  // Winner message element
+  winnerMessageElement = document.createElement('div');
+  winnerMessageElement.id = 'winnerMessage';
+  winnerMessageElement.style.cssText = `
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.85);
+    border: 3px solid #ff4444;
+    border-radius: 16px;
+    padding: 24px 32px;
+    color: #ffb3b3;
+    font-size: 28px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 200;
+    display: none;
+    text-shadow:
+      0 0 8px #ff4444,
+      0 0 16px #ff4444,
+      2px 2px 0 #8b0000,
+      -2px -2px 0 #8b0000;
+    animation: blinkWinner 0.15s infinite;
+  `;
+  winnerMessageElement.innerHTML = '';
+
+  if (canvasWrap) {
+    canvasWrap.appendChild(winnerMessageElement);
+  }
+
+  // Intro message element
+  introMessageElement = document.createElement('div');
+  introMessageElement.id = 'introMessage';
+  introMessageElement.style.cssText = `
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    border: 3px solid #ff6666;
+    border-radius: 16px;
+    padding: 24px 32px;
+    color: #ffcccc;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 150;
+    display: none;
+    text-shadow:
+      0 0 10px #ff4444,
+      0 0 20px #ff4444,
+      2px 2px 0 #8b0000,
+      -2px -2px 0 #8b0000,
+      3px 3px 0 #660000;
+  `;
+  introMessageElement.innerHTML = '';
+
+  if (canvasWrap) {
+    canvasWrap.appendChild(introMessageElement);
+  }
+
+  // Add blinking animation style
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes blinkWinner {
+      0% { color: #ffb3b3; }
+      50% { color: #ffffff; }
+      100% { color: #ffb3b3; }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function setRoomMessage(message) {
@@ -156,6 +271,108 @@ function setRoomMessage(message) {
 
 function setRoomStatus(message) {
   roomStatus.textContent = message || '';
+}
+
+function setRoomStatus(message) {
+  roomStatus.textContent = message || '';
+}
+
+function showIntroMessage(message) {
+  if (!introMessageElement) return;
+
+  introMessageElement.innerHTML = message.replace(/, /g, '<br>');
+  introMessageElement.style.display = 'block';
+
+  // Reset countdown
+  stopCountdown();
+  countdownValue = 60;
+
+  // Hide after 4 seconds
+  clearTimeout(introMessageTimeout);
+  introMessageTimeout = setTimeout(() => {
+    introMessageElement.style.display = 'none';
+    // Now allow player control
+    isPaused = false;
+    setStatus(`Level ${multiplayerLevel}`);
+  }, 4000);
+}
+
+function startCountdown(seconds) {
+  clearInterval(countdownTimerInterval);
+
+  countdownValue = seconds;
+
+  if (countdownElement) {
+    countdownElement.textContent = countdownValue;
+    countdownElement.style.display = 'block';
+  }
+
+  countdownTimerInterval = setInterval(() => {
+    countdownValue--;
+
+    if (countdownElement) {
+      countdownElement.textContent = countdownValue;
+    }
+
+    if (countdownValue <= 0) {
+      clearInterval(countdownTimerInterval);
+      countdownTimerInterval = null;
+
+      if (countdownElement) {
+        countdownElement.style.display = 'none';
+      }
+    }
+  }, 1000);
+}
+
+function stopCountdown() {
+  clearInterval(countdownTimerInterval);
+  countdownTimerInterval = null;
+
+  if (countdownElement) {
+    countdownElement.style.display = 'none';
+  }
+}
+
+function showWinnerMessage(winnerName) {
+  if (!winnerMessageElement) return;
+
+  stopCountdown();
+  stopGameMusic();
+  stopBossMusic();
+
+  // Play winner or noWinner music
+  const winnerAudio = document.getElementById('winnerMusic');
+  const noWinnerAudio = document.getElementById('noWinnerMusic');
+
+  if (winnerName === 'NO WINNER') {
+    if (noWinnerAudio) {
+      noWinnerAudio.currentTime = 0;
+      noWinnerAudio.play().catch(() => {});
+    }
+  } else {
+    if (winnerAudio) {
+      winnerAudio.currentTime = 0;
+      winnerAudio.play().catch(() => {});
+    }
+  }
+
+  const names = winnerName.split(' & ');
+  let html = 'WINNER<br><br>';
+
+  for (const name of names) {
+    html += `${name}<br>`;
+  }
+
+  winnerMessageElement.innerHTML = html;
+  winnerMessageElement.style.display = 'block';
+}
+
+function hideWinnerMessage() {
+  if (!winnerMessageElement) return;
+
+  winnerMessageElement.style.display = 'none';
+  winnerMessageElement.innerHTML = '';
 }
 
 function setStatus(text) {
@@ -228,11 +445,28 @@ function stopBossMusic() {
   bossMusic.currentTime = 0;
 }
 
+
+
 function stopGameMusic() {
   if (!bgMusic) return;
 
   bgMusic.pause();
   bgMusic.currentTime = 0;
+}
+
+function stopWinnerMusic() {
+  const winnerAudio = document.getElementById('winnerMusic');
+  const noWinnerAudio = document.getElementById('noWinnerMusic');
+
+  if (winnerAudio) {
+    winnerAudio.pause();
+    winnerAudio.currentTime = 0;
+  }
+
+  if (noWinnerAudio) {
+    noWinnerAudio.pause();
+    noWinnerAudio.currentTime = 0;
+  }
 }
 
 function playGameOverSound() {
@@ -382,78 +616,101 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'gameStart') {
-    stopOfflineAppleTimers();
-    stopBossTimers();
+  mode = 'online';
 
-    mode = 'online';
-    localGameOverShown = false;
-    localAlive = true;
-    isPaused = Boolean(data.paused);
+  localGameOverShown = false;
+  localAlive = true;
 
-    bossSnake = null;
+  isPaused = true; // Start paused during intro message
 
-    multiplayerLevel = data.level || 1;
-    selectedLevel = multiplayerLevel;
-    obstacles = createLevelObstacles(selectedLevel);
+  multiplayerLevel = data.level || 1;
+  selectedLevel = multiplayerLevel;
+  obstacles = createLevelObstacles(selectedLevel);
 
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
+  players = convertPlayers(data.players);
+  food = normalizeFood(data.food);
 
-    if (data.boss && data.boss.snake) {
-      remoteBoss = {
-        snake: data.boss.snake,
-        alive: data.boss.alive,
-        rageActive: data.boss.rageActive
-      };
-    } else {
-      remoteBoss = null;
-    }
+  if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
+  }
 
-    gridWidth = data.width || gridWidth;
-    gridHeight = data.height || gridHeight;
-    size = data.size || size;
+  gridWidth = data.width || gridWidth;
+  gridHeight = data.height || gridHeight;
+  size = data.size || size;
 
-    stopOfflineAppleTimers();
-stopIntroMusic();
+  stopOfflineAppleTimers();
+  stopIntroMusic();
+  stopWinnerMusic(); // Stop any winner/noWinner music
 
-if (multiplayerLevel === 6) {
-  playBossMusic();
-} else {
-  playGameMusic();
+  if (multiplayerLevel === 6) {
+    playBossMusic();
+  } else {
+    playGameMusic();
+  }
+
+  showScreen(gameScreen);
+  updatePauseButton();
+  setStatus(`Level ${multiplayerLevel}`);
+
+  // Hide any previous winner message
+  hideWinnerMessage();
+  stopCountdown();
+
+  // Show intro message for 4 seconds
+  showIntroMessage(data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE');
+
+  draw();
+  return;
 }
 
-showScreen(gameScreen);
-    updatePauseButton();
-    setStatus(`Level ${multiplayerLevel}`);
-    draw();
-    return;
-  }
-  
   if (data.type === 'bossDied') {
     remoteBoss = null;
-    // Optional: show a "BOSS DEFEATED" message here
     return;
   }
 
   if (data.type === 'state') {
-    mode = 'online';
-    isPaused = Boolean(data.paused);
-    players = convertPlayers(data.players);
-    food = normalizeFood(data.food);
+  mode = 'online';
+  isPaused = Boolean(data.paused);
+  players = convertPlayers(data.players);
+  food = normalizeFood(data.food);
 
-    if (data.boss && data.boss.snake) {
-      remoteBoss = {
-        snake: data.boss.snake,
-        alive: data.boss.alive,
-        rageActive: data.boss.rageActive
-      };
-    } else {
-      remoteBoss = null;
-    }
+  if (data.boss && data.boss.snake) {
+    remoteBoss = {
+      snake: data.boss.snake,
+      alive: data.boss.alive,
+      rageActive: data.boss.rageActive
+    };
+  } else {
+    remoteBoss = null;
+  }
 
-    updatePauseButton();
-    setStatus(isPaused ? 'Paused' : 'Connected');
-    draw();
+  updatePauseButton();
+  setStatus(isPaused ? 'Paused' : 'Connected');
+  draw();
+}
+
+  if (data.type === 'countdownStart') {
+    // Start countdown from server
+    startCountdown(60);
+    return;
+  }
+
+  if (data.type === 'winner') {
+    // Show winner message
+    showWinnerMessage(data.winnerName || 'NO WINNER');
+    return;
+  }
+
+  if (data.type === 'noWinner') {
+    // Show no winner message
+    showWinnerMessage('NO WINNER');
+    return;
   }
 }
 
@@ -1747,24 +2004,9 @@ function startSelectedLevel(level) {
   showScreen(gameScreen);
 }
 function beginMultiplayerMenu() {
-  stopOfflineAppleTimers();
-  stopBossTimers();
-
-  localGameOverShown = false;
-  localAlive = true;
-  isPaused = false;
-
-  enemies = [];
-  bossSnake = null;
-  remoteBoss = null;
-  players = {};
-
-  stopGameMusic();
-  stopBossMusic();
-  playIntroMusic();
-
   mode = 'multiplayer-menu';
 
+  playIntroMusic();
   showScreen(multiplayerMenu);
   connectSocket();
 }
@@ -1999,6 +2241,7 @@ function resetLocalGame() {
   food = [randomFood('red')];
 
   gameOverLogo.classList.remove('show');
+  hideWinnerMessage(); // Hide winner message on restart
 
   if (gameOverSound) {
     gameOverSound.pause();
@@ -2213,22 +2456,13 @@ function createLevelObstacles(level = selectedLevel) {
   return result;
 }
 function showOfflineGameOver() {
-  if (localGameOverShown) {
-    return;
-  }
+  if (localGameOverShown) return;
 
   localGameOverShown = true;
   localAlive = false;
 
   stopOfflineAppleTimers();
-  stopBossTimers();
-
-  bossSnake = null;
-  bossRageActive = false;
-  bossRageEndTime = 0;
-
   stopGameMusic();
-  stopBossMusic();
   playGameOverSound();
 
   setStatus('Game Over');
@@ -2237,10 +2471,7 @@ function showOfflineGameOver() {
 }
 
 function sendDirection(direction) {
-  if (
-    isPaused ||
-    localGameOverShown
-  ) {
+  if (isPaused) {
     return;
   }
 
@@ -2249,7 +2480,10 @@ function sendDirection(direction) {
       type: 'dir',
       dir: direction
     });
-  } else if (mode === 'offline') {
+    return;
+  }
+
+  if (mode === 'offline' && !localGameOverShown) {
     localNextDir = direction;
   }
 }
@@ -2297,6 +2531,23 @@ restartBtn.addEventListener('click', () => {
   stopIntroMusic();
   stopBossMusic();
 
+  // Stop winner/noWinner music
+  const winnerAudio = document.getElementById('winnerMusic');
+  const noWinnerAudio = document.getElementById('noWinnerMusic');
+
+  if (winnerAudio) {
+    winnerAudio.pause();
+    winnerAudio.currentTime = 0;
+  }
+
+  if (noWinnerAudio) {
+    noWinnerAudio.pause();
+    noWinnerAudio.currentTime = 0;
+  }
+
+  hideWinnerMessage(); // Hide winner message
+  stopCountdown(); // Stop countdown
+
   resetLocalGame();
   startOfflineAppleTimers();
 
@@ -2314,9 +2565,23 @@ menuBtn.addEventListener('click', () => {
   }
 
   stopOfflineAppleTimers();
-stopGameMusic();
-stopBossMusic();
-stopIntroMusic();
+  stopGameMusic();
+  stopBossMusic();
+  stopIntroMusic();
+
+  // Stop winner/noWinner music
+  const winnerAudio = document.getElementById('winnerMusic');
+  const noWinnerAudio = document.getElementById('noWinnerMusic');
+
+  if (winnerAudio) {
+    winnerAudio.pause();
+    winnerAudio.currentTime = 0;
+  }
+
+  if (noWinnerAudio) {
+    noWinnerAudio.pause();
+    noWinnerAudio.currentTime = 0;
+  }
 
   if (gameOverSound) {
     gameOverSound.pause();
@@ -2324,6 +2589,8 @@ stopIntroMusic();
   }
 
   gameOverLogo.classList.remove('show');
+  hideWinnerMessage(); // Hide winner message
+  stopCountdown(); // Stop countdown
 
   mode = 'menu';
   isHost = false;
@@ -2333,6 +2600,16 @@ stopIntroMusic();
   isPaused = false;
   players = {};
   enemies = [];
+
+  localGameOverShown = false;
+  localAlive = true;
+  localGrow = 0;
+  localScore = 0;
+  localDir = 'right';
+  localNextDir = 'right';
+
+  bossSnake = null;
+  remoteBoss = null;
 
   setStatus('Ready');
   showScreen(mainMenu);

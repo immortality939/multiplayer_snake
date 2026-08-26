@@ -191,6 +191,11 @@ function createRoom(roomName, player) {
     paused: false,
     level: 1,
     food: [],
+    introTimer: null,
+    countdownTimer: null,
+    startTime: 0,
+    countdownEndsAt: 0,
+    winnerShown: false,
     blueTimer: null,
     greenTimer: null,
     players: new Map()
@@ -303,19 +308,25 @@ function setDirection(player, direction) {
 
 function resetRoomGame(room) {
   room.food = [randomFood('red', room)].filter(Boolean);
-  room.paused = false;
+  room.paused = true; // Keep paused during intro
+  room.winnerShown = false;
+  room.startTime = 0;
+  room.countdownEndsAt = 0;
+
+  clearTimeout(room.countdownTimer);
+  room.countdownTimer = null;
 
   for (const player of room.players.values()) {
     player.dir = getSpawnDirection(player.id);
     player.nextDir = getSpawnDirection(player.id);
     if (player.deathTimer) {
-  clearTimeout(player.deathTimer);
-  player.deathTimer = null;
-}
+      clearTimeout(player.deathTimer);
+      player.deathTimer = null;
+    }
 
-player.alive = true;
-player.dying = false;
-player.score = 0;
+    player.alive = true;
+    player.dying = false;
+    player.score = 0;
     player.grow = 0;
     player.snake = createSnake(player.id);
     player.moveInterval = CONFIG.speed?.player || 120;
@@ -495,20 +506,23 @@ function startRoom(room) {
   }
 
   room.started = true;
+  room.paused = true; // Keep paused during intro message
+  room.winnerShown = false;
+
   resetRoomGame(room);
 
   if (room.level === CONFIG.boss.enabledInLevel) {
-    bossState.set(room.name, createBossSnakeServer(room));
+    bossState.set(
+      room.name,
+      createBossSnakeServer(room)
+    );
   } else {
     bossState.delete(room.name);
   }
 
   startFoodTimers(room);
 
-  const boss =
-  room.level === CONFIG.boss.enabledInLevel
-    ? bossState.get(room.name)
-    : null;
+  const boss = bossState.get(room.name);
 
   broadcastRoom(room, {
     type: 'gameStart',
@@ -517,14 +531,82 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: room.paused,
+    paused: true,
     level: room.level,
-    boss: boss ? {
-      snake: boss.snake,
-      alive: boss.alive,
-      rageActive: boss.rageActive
-    } : null
+    boss: boss
+      ? {
+          snake: boss.snake,
+          alive: boss.alive,
+          rageActive: boss.rageActive
+        }
+      : null,
+    introMessage: 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE',
+    introDuration: 4000
   });
+
+  clearTimeout(room.introTimer);
+
+  room.introTimer = setTimeout(() => {
+    if (!room.started) {
+      return;
+    }
+
+    room.startTime = Date.now();
+    room.countdownEndsAt = room.startTime + 60000;
+    room.paused = false; // Now allow players to control
+
+    broadcastRoom(room, {
+      type: 'countdownStart',
+      countdownEndsAt: room.countdownEndsAt
+    });
+
+    clearTimeout(room.countdownTimer);
+
+    room.countdownTimer = setTimeout(() => {
+      finishRoomCountdown(room);
+    }, 60000);
+  }, 4000);
+}
+
+function finishRoomCountdown(room) {
+  if (!room.started || room.winnerShown) {
+    return;
+  }
+
+  room.winnerShown = true;
+  room.paused = true;
+
+  clearTimeout(room.countdownTimer);
+  room.countdownTimer = null;
+
+  // Stop all timers (including boss rage timer)
+  stopFoodTimers(room);
+
+  const alivePlayers = Array.from(room.players.values())
+    .filter((player) =>
+      player.alive &&
+      player.snake &&
+      player.snake.length > 0
+    );
+
+  if (alivePlayers.length === 0) {
+    // No winner - all players dead before countdown finished
+    broadcastRoom(room, {
+      type: 'noWinner',
+      winnerName: 'NO WINNER'
+    });
+  } else {
+    // There is winner(s) - send names joined by ' & ' for client to split
+    const winnerName =
+      alivePlayers.length === 1
+        ? alivePlayers[0].name
+        : alivePlayers.map((player) => player.name).join(' & ');
+
+    broadcastRoom(room, {
+      type: 'winner',
+      winnerName
+    });
+  }
 }
 
 function createBossSnakeServer(room) {
@@ -1176,8 +1258,79 @@ if (replacementFood) {
 }
 
 
+function startPlayerDeath(room, player) {
+  if (!player.alive || player.dying) {
+    return;
+  }
+
+  player.dying = true;
+
+  broadcastRoom(room, {
+    type: 'state',
+    players: publicPlayers(room),
+    food: room.food,
+    paused: room.paused,
+    level: room.level,
+    boss: getPublicBoss(room)
+  });
+
+  player.deathTimer = setTimeout(() => {
+    player.alive = false;
+    player.dying = false;
+    player.deathTimer = null;
+    player.snake = [];
+
+    broadcastRoom(room, {
+      type: 'state',
+      players: publicPlayers(room),
+      food: room.food,
+      paused: room.paused,
+      level: room.level,
+      boss: getPublicBoss(room)
+    });
+
+    // Check if all players are dead
+    checkAllPlayersDead(room);
+  }, 1000);
+}
+
+function checkAllPlayersDead(room) {
+  if (!room.started || room.winnerShown) {
+    return;
+  }
+
+  const alivePlayers = Array.from(room.players.values())
+    .filter((player) =>
+      player.alive &&
+      player.snake &&
+      player.snake.length > 0
+    );
+
+  if (alivePlayers.length === 0) {
+    // All players dead - end game immediately
+    room.winnerShown = true;
+    room.paused = true;
+
+    clearTimeout(room.countdownTimer);
+    room.countdownTimer = null;
+
+    stopFoodTimers(room);
+
+    broadcastRoom(room, {
+      type: 'noWinner',
+      winnerName: 'NO WINNER'
+    });
+  }
+}
+
 function gameStep(room) {
-  if (!room.started || room.paused) {
+  if (
+    !room.started ||
+    room.paused ||
+    !room.startTime ||
+    Date.now() < room.startTime ||
+    room.winnerShown
+  ) {
     return;
   }
 
@@ -1213,6 +1366,10 @@ function removePlayer(player) {
 
   if (room.players.size === 0) {
     stopFoodTimers(room);
+
+    clearTimeout(room.introTimer);
+    clearTimeout(room.countdownTimer);
+
     bossState.delete(room.name);
     rooms.delete(room.name);
     return;
@@ -1442,6 +1599,16 @@ wss.on('connection', (ws) => {
   }
 
   stopFoodTimers(room);
+
+  clearTimeout(room.introTimer);
+  clearTimeout(room.countdownTimer);
+
+  room.introTimer = null;
+  room.countdownTimer = null;
+  room.startTime = 0;
+  room.countdownEndsAt = 0;
+  room.winnerShown = false;
+
   bossState.delete(room.name);
 
   resetRoomGame(room);
@@ -1457,11 +1624,15 @@ wss.on('connection', (ws) => {
 
   const boss = bossState.get(room.name);
 
+  // Send gameStart again to show intro message
   broadcastRoom(room, {
-    type: 'state',
+    type: 'gameStart',
+    width: WIDTH,
+    height: HEIGHT,
+    size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: room.paused,
+    paused: true,
     level: room.level,
     boss: boss
       ? {
@@ -1469,8 +1640,34 @@ wss.on('connection', (ws) => {
           alive: boss.alive,
           rageActive: boss.rageActive
         }
-      : null
+      : null,
+    introMessage: 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE',
+    introDuration: 4000
   });
+
+  // Start intro timer again
+  clearTimeout(room.introTimer);
+
+  room.introTimer = setTimeout(() => {
+    if (!room.started) {
+      return;
+    }
+
+    room.startTime = Date.now();
+    room.countdownEndsAt = room.startTime + 60000;
+    room.paused = false;
+
+    broadcastRoom(room, {
+      type: 'countdownStart',
+      countdownEndsAt: room.countdownEndsAt
+    });
+
+    clearTimeout(room.countdownTimer);
+
+    room.countdownTimer = setTimeout(() => {
+      finishRoomCountdown(room);
+    }, 60000);
+  }, 4000);
 
   return;
 }
@@ -1485,6 +1682,18 @@ wss.on('connection', (ws) => {
 
         setDirection(player, data.dir);
       }
+      if (data.type === 'dir') {
+  const player = client.player;
+  const room = player && getRoom(player.roomName);
+
+  if (!room || !room.started || room.paused) {
+    return;
+  }
+
+  setDirection(player, data.dir);
+}
+
+// Winner and noWinner messages don't need client handling - they're server-to-client only
     } catch (error) {
       console.error('Server game error:', error);
 
