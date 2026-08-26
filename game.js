@@ -699,10 +699,12 @@ function handleServerMessage(data) {
 }
 
   if (data.type === 'countdownStart') {
-    // Start countdown from server
+  // Only start countdown for Level 6
+  if (multiplayerLevel === 6) {
     startCountdown(60);
-    return;
   }
+  return;
+}
 
   if (data.type === 'winner') {
     // Show winner message

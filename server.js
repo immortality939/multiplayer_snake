@@ -308,7 +308,7 @@ function setDirection(player, direction) {
 
 function resetRoomGame(room) {
   room.food = [randomFood('red', room)].filter(Boolean);
-  room.paused = true; // Keep paused during intro
+  room.paused = false; // Will be set to true for Level 6 in startRoom
   room.winnerShown = false;
   room.startTime = 0;
   room.countdownEndsAt = 0;
@@ -506,7 +506,6 @@ function startRoom(room) {
   }
 
   room.started = true;
-  room.paused = true; // Keep paused during intro message
   room.winnerShown = false;
 
   resetRoomGame(room);
@@ -524,6 +523,9 @@ function startRoom(room) {
 
   const boss = bossState.get(room.name);
 
+  // Only show intro message and paused state for Level 6
+  const isLevel6 = room.level === CONFIG.boss.enabledInLevel;
+
   broadcastRoom(room, {
     type: 'gameStart',
     width: WIDTH,
@@ -531,7 +533,7 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: true,
+    paused: isLevel6, // Only pause for Level 6
     level: room.level,
     boss: boss
       ? {
@@ -540,36 +542,45 @@ function startRoom(room) {
           rageActive: boss.rageActive
         }
       : null,
-    introMessage: 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE',
-    introDuration: 4000
+    introMessage: isLevel6 ? 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE' : '',
+    introDuration: isLevel6 ? 4000 : 0
   });
 
-  clearTimeout(room.introTimer);
+  // Only show intro message and countdown for Level 6
+  if (isLevel6) {
+    room.paused = true; // Keep paused during intro message
 
-  room.introTimer = setTimeout(() => {
-    if (!room.started) {
-      return;
-    }
+    clearTimeout(room.introTimer);
 
+    room.introTimer = setTimeout(() => {
+      if (!room.started) {
+        return;
+      }
+
+      room.startTime = Date.now();
+      room.countdownEndsAt = room.startTime + 60000;
+      room.paused = false; // Now allow players to control
+
+      broadcastRoom(room, {
+        type: 'countdownStart',
+        countdownEndsAt: room.countdownEndsAt
+      });
+
+      clearTimeout(room.countdownTimer);
+
+      room.countdownTimer = setTimeout(() => {
+        finishRoomCountdown(room);
+      }, 60000);
+    }, 4000);
+  } else {
+    // Levels 1-5: start immediately without intro or countdown
+    room.paused = false;
     room.startTime = Date.now();
-    room.countdownEndsAt = room.startTime + 60000;
-    room.paused = false; // Now allow players to control
-
-    broadcastRoom(room, {
-      type: 'countdownStart',
-      countdownEndsAt: room.countdownEndsAt
-    });
-
-    clearTimeout(room.countdownTimer);
-
-    room.countdownTimer = setTimeout(() => {
-      finishRoomCountdown(room);
-    }, 60000);
-  }, 4000);
+  }
 }
 
 function finishRoomCountdown(room) {
-  if (!room.started || room.winnerShown) {
+  if (!room.started || room.winnerShown || room.level !== CONFIG.boss.enabledInLevel) {
     return;
   }
 
@@ -596,7 +607,7 @@ function finishRoomCountdown(room) {
       winnerName: 'NO WINNER'
     });
   } else {
-    // There is winner(s) - send names joined by ' & ' for client to split
+    // There is winner(s)
     const winnerName =
       alivePlayers.length === 1
         ? alivePlayers[0].name
