@@ -283,16 +283,17 @@ function showIntroMessage(message) {
   introMessageElement.innerHTML = message.replace(/, /g, '<br>');
   introMessageElement.style.display = 'block';
 
-  // Reset countdown
   stopCountdown();
   countdownValue = 60;
+  isPaused = true;
+  updatePauseButton();
+  setStatus(`Level ${multiplayerLevel}`);
 
-  // Hide after 4 seconds
   clearTimeout(introMessageTimeout);
   introMessageTimeout = setTimeout(() => {
     introMessageElement.style.display = 'none';
-    // Now allow player control
     isPaused = false;
+    updatePauseButton();
     setStatus(`Level ${multiplayerLevel}`);
   }, 4000);
 }
@@ -341,7 +342,6 @@ function showWinnerMessage(winnerName) {
   stopGameMusic();
   stopBossMusic();
 
-  // Play winner or noWinner music
   const winnerAudio = document.getElementById('winnerMusic');
   const noWinnerAudio = document.getElementById('noWinnerMusic');
 
@@ -366,6 +366,10 @@ function showWinnerMessage(winnerName) {
 
   winnerMessageElement.innerHTML = html;
   winnerMessageElement.style.display = 'block';
+
+  isPaused = true;
+  updatePauseButton();
+  setStatus('Game Over');
 }
 
 function hideWinnerMessage() {
@@ -620,6 +624,7 @@ function handleServerMessage(data) {
 
   localGameOverShown = false;
   localAlive = true;
+  isPaused = true;
 
   multiplayerLevel = data.level || 1;
   selectedLevel = multiplayerLevel;
@@ -644,7 +649,7 @@ function handleServerMessage(data) {
 
   stopOfflineAppleTimers();
   stopIntroMusic();
-  stopWinnerMusic(); // Stop any winner/noWinner music
+  stopWinnerMusic();
 
   if (multiplayerLevel === 6) {
     playBossMusic();
@@ -656,17 +661,12 @@ function handleServerMessage(data) {
   updatePauseButton();
   setStatus(`Level ${multiplayerLevel}`);
 
-  // Hide any previous winner message
   hideWinnerMessage();
   stopCountdown();
 
-  // Only show intro message and pause for Level 6
-  if (multiplayerLevel === 6) {
-    isPaused = data.paused; // Should be true for Level 6
-    showIntroMessage(data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE');
-  } else {
-    isPaused = data.paused; // Should be false for Levels 1-5
-  }
+  showIntroMessage(
+    data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE'
+  );
 
   draw();
   return;
@@ -699,23 +699,25 @@ function handleServerMessage(data) {
 }
 
   if (data.type === 'countdownStart') {
-  // Only start countdown for Level 6
   if (multiplayerLevel === 6) {
     startCountdown(60);
+  } else {
+    stopCountdown();
+    if (countdownElement) {
+      countdownElement.style.display = 'none';
+    }
   }
   return;
 }
 
   if (data.type === 'winner') {
-  // Only show winner message for Level 6
   if (multiplayerLevel === 6) {
     showWinnerMessage(data.winnerName || 'NO WINNER');
   }
   return;
 }
 
-if (data.type === 'noWinner') {
-  // Only show no winner message for Level 6
+  if (data.type === 'noWinner') {
   if (multiplayerLevel === 6) {
     showWinnerMessage('NO WINNER');
   }
@@ -2504,14 +2506,19 @@ function togglePause() {
       return;
     }
 
-    send({
-      type: 'pause'
-    });
-
+    send({ type: 'pause' });
     return;
   }
 
   if (mode !== 'offline') {
+    return;
+  }
+
+  if (selectedLevel !== 6) {
+    isPaused = !isPaused;
+    updatePauseButton();
+    setStatus(isPaused ? 'Paused' : 'Offline');
+    draw();
     return;
   }
 
@@ -2934,28 +2941,17 @@ function draw() {
     drawLocal();
   }
 
-  if (isPaused) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-    ctx.fillRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+  if (isPaused && mode !== 'online') {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 30px Arial';
-    ctx.textAlign = 'center';
-
-    ctx.fillText(
-      'PAUSED',
-      canvas.width / 2,
-      canvas.height / 2
-    );
-
-    ctx.textAlign = 'left';
-  }
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 30px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+  ctx.textAlign = 'left';
 }
+
 
 function stepLocal() {
   if (
