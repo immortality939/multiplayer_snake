@@ -506,13 +506,16 @@ function startRoom(room) {
   }
 
   room.started = true;
-  room.paused = true;
+  room.paused = true; // Keep paused during intro message
   room.winnerShown = false;
 
   resetRoomGame(room);
 
   if (room.level === CONFIG.boss.enabledInLevel) {
-    bossState.set(room.name, createBossSnakeServer(room));
+    bossState.set(
+      room.name,
+      createBossSnakeServer(room)
+    );
   } else {
     bossState.delete(room.name);
   }
@@ -542,7 +545,6 @@ function startRoom(room) {
   });
 
   clearTimeout(room.introTimer);
-  clearTimeout(room.countdownTimer);
 
   room.introTimer = setTimeout(() => {
     if (!room.started) {
@@ -551,7 +553,7 @@ function startRoom(room) {
 
     room.startTime = Date.now();
     room.countdownEndsAt = room.startTime + 60000;
-    room.paused = true;
+    room.paused = false; // Now allow players to control
 
     broadcastRoom(room, {
       type: 'countdownStart',
@@ -577,21 +579,24 @@ function finishRoomCountdown(room) {
   clearTimeout(room.countdownTimer);
   room.countdownTimer = null;
 
+  // Stop all timers (including boss rage timer)
   stopFoodTimers(room);
 
   const alivePlayers = Array.from(room.players.values())
-    .filter((player) => player.alive);
-
-  if (room.level !== CONFIG.boss.enabledInLevel) {
-    return;
-  }
+    .filter((player) =>
+      player.alive &&
+      player.snake &&
+      player.snake.length > 0
+    );
 
   if (alivePlayers.length === 0) {
+    // No winner - all players dead before countdown finished
     broadcastRoom(room, {
       type: 'noWinner',
       winnerName: 'NO WINNER'
     });
   } else {
+    // There is winner(s) - send names joined by ' & ' for client to split
     const winnerName =
       alivePlayers.length === 1
         ? alivePlayers[0].name
@@ -956,7 +961,9 @@ function moveBossSnakeServer(room, now = Date.now()) {
     } else {
       boss.alive = false;
       bossState.delete(room.name);
-      broadcastRoom(room, { type: 'bossDied' });
+      broadcastRoom(room, {
+        type: 'bossDied'
+      });
       return;
     }
   }
@@ -1136,8 +1143,6 @@ function startPlayerDeath(room, player) {
       level: room.level,
       boss: getPublicBoss(room)
     });
-
-    checkAllPlayersDead(room);
   }, 1000);
 }
 
@@ -1297,14 +1302,15 @@ function checkAllPlayersDead(room) {
     return;
   }
 
-  if (room.level !== CONFIG.boss.enabledInLevel) {
-    return;
-  }
-
   const alivePlayers = Array.from(room.players.values())
-    .filter((player) => player.alive && player.snake && player.snake.length > 0);
+    .filter((player) =>
+      player.alive &&
+      player.snake &&
+      player.snake.length > 0
+    );
 
   if (alivePlayers.length === 0) {
+    // All players dead - end game immediately
     room.winnerShown = true;
     room.paused = true;
 
@@ -1331,18 +1337,16 @@ function gameStep(room) {
     return;
   }
 
-  if (room.level !== CONFIG.boss.enabledInLevel) {
-    return;
-  }
-
   const now = Date.now();
 
   for (const player of room.players.values()) {
     movePlayer(room, player, now);
   }
 
-  moveBossSnakeServer(room, now);
-  checkBossPlayerCollision(room);
+  if (room.level === CONFIG.boss.enabledInLevel) {
+    moveBossSnakeServer(room, now);
+    checkBossPlayerCollision(room);
+  }
 
   broadcastRoom(room, {
     type: 'state',
@@ -1613,13 +1617,17 @@ wss.on('connection', (ws) => {
   resetRoomGame(room);
 
   if (room.level === CONFIG.boss.enabledInLevel) {
-    bossState.set(room.name, createBossSnakeServer(room));
+    bossState.set(
+      room.name,
+      createBossSnakeServer(room)
+    );
   }
 
   startFoodTimers(room);
 
   const boss = bossState.get(room.name);
 
+  // Send gameStart again to show intro message
   broadcastRoom(room, {
     type: 'gameStart',
     width: WIDTH,
@@ -1640,6 +1648,7 @@ wss.on('connection', (ws) => {
     introDuration: 4000
   });
 
+  // Start intro timer again
   clearTimeout(room.introTimer);
 
   room.introTimer = setTimeout(() => {
@@ -1649,7 +1658,7 @@ wss.on('connection', (ws) => {
 
     room.startTime = Date.now();
     room.countdownEndsAt = room.startTime + 60000;
-    room.paused = true;
+    room.paused = false;
 
     broadcastRoom(room, {
       type: 'countdownStart',
@@ -1666,7 +1675,16 @@ wss.on('connection', (ws) => {
   return;
 }
 
+      if (data.type === 'dir') {
+        const player = client.player;
+        const room = player && getRoom(player.roomName);
 
+        if (!room || !room.started || room.paused) {
+          return;
+        }
+
+        setDirection(player, data.dir);
+      }
       if (data.type === 'dir') {
   const player = client.player;
   const room = player && getRoom(player.roomName);

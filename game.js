@@ -283,17 +283,16 @@ function showIntroMessage(message) {
   introMessageElement.innerHTML = message.replace(/, /g, '<br>');
   introMessageElement.style.display = 'block';
 
+  // Reset countdown
   stopCountdown();
   countdownValue = 60;
-  isPaused = true;
-  updatePauseButton();
-  setStatus(`Level ${multiplayerLevel}`);
 
+  // Hide after 4 seconds
   clearTimeout(introMessageTimeout);
   introMessageTimeout = setTimeout(() => {
     introMessageElement.style.display = 'none';
+    // Now allow player control
     isPaused = false;
-    updatePauseButton();
     setStatus(`Level ${multiplayerLevel}`);
   }, 4000);
 }
@@ -342,6 +341,7 @@ function showWinnerMessage(winnerName) {
   stopGameMusic();
   stopBossMusic();
 
+  // Play winner or noWinner music
   const winnerAudio = document.getElementById('winnerMusic');
   const noWinnerAudio = document.getElementById('noWinnerMusic');
 
@@ -366,10 +366,6 @@ function showWinnerMessage(winnerName) {
 
   winnerMessageElement.innerHTML = html;
   winnerMessageElement.style.display = 'block';
-
-  isPaused = true;
-  updatePauseButton();
-  setStatus('Game Over');
 }
 
 function hideWinnerMessage() {
@@ -624,7 +620,8 @@ function handleServerMessage(data) {
 
   localGameOverShown = false;
   localAlive = true;
-  isPaused = true;
+
+  isPaused = true; // Start paused during intro message
 
   multiplayerLevel = data.level || 1;
   selectedLevel = multiplayerLevel;
@@ -649,7 +646,7 @@ function handleServerMessage(data) {
 
   stopOfflineAppleTimers();
   stopIntroMusic();
-  stopWinnerMusic();
+  stopWinnerMusic(); // Stop any winner/noWinner music
 
   if (multiplayerLevel === 6) {
     playBossMusic();
@@ -661,12 +658,12 @@ function handleServerMessage(data) {
   updatePauseButton();
   setStatus(`Level ${multiplayerLevel}`);
 
+  // Hide any previous winner message
   hideWinnerMessage();
   stopCountdown();
 
-  showIntroMessage(
-    data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE'
-  );
+  // Show intro message for 4 seconds
+  showIntroMessage(data.introMessage || 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE');
 
   draw();
   return;
@@ -699,31 +696,23 @@ function handleServerMessage(data) {
 }
 
   if (data.type === 'countdownStart') {
-  if (multiplayerLevel === 6) {
+    // Start countdown from server
     startCountdown(60);
-  } else {
-    stopCountdown();
-    if (countdownElement) {
-      countdownElement.style.display = 'none';
-    }
+    return;
   }
-  return;
-}
 
   if (data.type === 'winner') {
-  if (multiplayerLevel === 6) {
+    // Show winner message
     showWinnerMessage(data.winnerName || 'NO WINNER');
+    return;
   }
-  return;
-}
 
   if (data.type === 'noWinner') {
-  if (multiplayerLevel === 6) {
+    // Show no winner message
     showWinnerMessage('NO WINNER');
+    return;
   }
-  return;
 }
-
 
 function renderAvailableRooms(rooms) {
   availableRooms.innerHTML = '';
@@ -2506,19 +2495,14 @@ function togglePause() {
       return;
     }
 
-    send({ type: 'pause' });
+    send({
+      type: 'pause'
+    });
+
     return;
   }
 
   if (mode !== 'offline') {
-    return;
-  }
-
-  if (selectedLevel !== 6) {
-    isPaused = !isPaused;
-    updatePauseButton();
-    setStatus(isPaused ? 'Paused' : 'Offline');
-    draw();
     return;
   }
 
@@ -2941,17 +2925,28 @@ function draw() {
     drawLocal();
   }
 
-  if (isPaused && mode !== 'online') {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (isPaused) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 30px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
-  ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 30px Arial';
+    ctx.textAlign = 'center';
+
+    ctx.fillText(
+      'PAUSED',
+      canvas.width / 2,
+      canvas.height / 2
+    );
+
+    ctx.textAlign = 'left';
+  }
 }
-
 
 function stepLocal() {
   if (
