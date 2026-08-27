@@ -506,8 +506,14 @@ function startRoom(room) {
   }
 
   room.started = true;
-  room.paused = true; // Keep paused during intro message
   room.winnerShown = false;
+
+  // Only pause for Level 6 intro
+  if (room.level === 6) {
+    room.paused = true;
+  } else {
+    room.paused = false;
+  }
 
   resetRoomGame(room);
 
@@ -531,7 +537,7 @@ function startRoom(room) {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: true,
+    paused: room.level === 6,
     level: room.level,
     boss: boss
       ? {
@@ -546,15 +552,15 @@ function startRoom(room) {
 
   clearTimeout(room.introTimer);
 
-  room.introTimer = setTimeout(() => {
-    if (!room.started) {
-      return;
-    }
+  // Only use intro delay in Level 6
+  if (room.level === 6) {
+    room.introTimer = setTimeout(() => {
+      if (!room.started) {
+        return;
+      }
 
-    room.paused = false; // Now allow players to control
+      room.paused = false; // Now allow players to control
 
-    // Only start countdown in Level 6
-    if (room.level === 6) {
       room.startTime = Date.now();
       room.countdownEndsAt = room.startTime + 60000;
 
@@ -568,8 +574,11 @@ function startRoom(room) {
       room.countdownTimer = setTimeout(() => {
         finishRoomCountdown(room);
       }, 60000);
-    }
-  }, 4000);
+    }, 4000);
+  } else {
+    // Levels 1-5: Start immediately
+    room.paused = false;
+  }
 }
 
 function finishRoomCountdown(room) {
@@ -1647,7 +1656,7 @@ wss.on('connection', (ws) => {
     size: SIZE,
     players: publicPlayers(room),
     food: room.food,
-    paused: true,
+    paused: room.level === 6,
     level: room.level,
     boss: boss
       ? {
@@ -1663,15 +1672,15 @@ wss.on('connection', (ws) => {
   // Start intro timer again
   clearTimeout(room.introTimer);
 
-  room.introTimer = setTimeout(() => {
-    if (!room.started) {
-      return;
-    }
+  // Only use intro delay in Level 6
+  if (room.level === 6) {
+    room.introTimer = setTimeout(() => {
+      if (!room.started) {
+        return;
+      }
 
-    room.paused = false;
+      room.paused = false;
 
-    // Only start countdown in Level 6
-    if (room.level === 6) {
       room.startTime = Date.now();
       room.countdownEndsAt = room.startTime + 60000;
 
@@ -1685,8 +1694,11 @@ wss.on('connection', (ws) => {
       room.countdownTimer = setTimeout(() => {
         finishRoomCountdown(room);
       }, 60000);
-    }
-  }, 4000);
+    }, 4000);
+  } else {
+    // Levels 1-5: Start immediately
+    room.paused = false;
+  }
 
   return;
 }
