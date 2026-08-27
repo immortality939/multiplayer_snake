@@ -114,7 +114,10 @@ let gridWidth = window.GAME_CONFIG?.grid?.width || 72;
 let gridHeight = window.GAME_CONFIG?.grid?.height || 80;
 let size = window.GAME_CONFIG?.grid?.cellSize || 5;
 const drawSize = window.GAME_CONFIG?.grid?.drawSize || 5;
-
+// Camera for Level 7 (Open World)
+let camera = { x: 0, y: 0 };
+let viewportWidth = Math.floor(canvas.width / drawSize);
+let viewportHeight = Math.floor(canvas.height / drawSize);
 // Initial snake from config.js
 const initialPos = window.GAME_CONFIG?.initialPosition || { x: 10, y: 5 };
 const initialLen = window.GAME_CONFIG?.initialLength || 3;
@@ -1004,36 +1007,83 @@ function spawnEnemy() {
   console.log('Enemy spawned');
 }
 
+function spawnLevel7Enemies() {
+  if (selectedLevel !== 7) return;
+
+  enemies = [];
+
+  // Spawn 10 enemies around the sides
+  const spawnPositions = [
+    { x: 100, y: 100, dir: 'right' },
+    { x: 1900, y: 100, dir: 'left' },
+    { x: 100, y: 1900, dir: 'right' },
+    { x: 1900, y: 1900, dir: 'left' },
+    { x: 1000, y: 100, dir: 'down' },
+    { x: 1000, y: 1900, dir: 'up' },
+    { x: 100, y: 500, dir: 'right' },
+    { x: 1900, y: 500, dir: 'left' },
+    { x: 100, y: 1500, dir: 'right' },
+    { x: 1900, y: 1500, dir: 'left' }
+  ];
+
+  for (const spawn of spawnPositions) {
+    const body = [];
+    for (let i = 0; i < 3; i++) {
+      if (spawn.dir === 'right') {
+        body.push({ x: spawn.x - i, y: spawn.y });
+      } else if (spawn.dir === 'left') {
+        body.push({ x: spawn.x + i, y: spawn.y });
+      } else if (spawn.dir === 'down') {
+        body.push({ x: spawn.x, y: spawn.y - i });
+      } else if (spawn.dir === 'up') {
+        body.push({ x: spawn.x, y: spawn.y + i });
+      }
+    }
+
+    enemies.push({
+      snake: body,
+      dir: spawn.dir,
+      grow: 0,
+      score: 0,
+      alive: true
+    });
+  }
+
+  console.log('Level 7: 10 enemies spawned');
+}
+
 function createBossSnake() {
   const bossConfig = window.GAME_CONFIG?.boss || {};
   const speedConfig = window.GAME_CONFIG?.speed?.boss || { normal: 120, rage: 60 };
   const baseSpeed = speedConfig.normal || bossConfig.baseSpeedMs || 120;
 
-  // Spawn in middle of board
-  const startX = Math.floor(gridWidth / 2);
-  const startY = Math.floor(gridHeight / 2);
+  let startX, startY;
+
+  // Spawn in middle but slightly on top for all levels
+  startX = Math.floor(gridWidth / 2);
+  startY = Math.floor(gridHeight / 2) - 20;
 
   // Initial length
-    const initialLen = bossConfig.initialLength || 20;
+  const initialLen = bossConfig.initialLength || 20;
 
   const snake = [];
   for (let i = 0; i < initialLen; i++) {
     snake.push({ x: startX - i, y: startY });
   }
 
-return {
-  snake,
-  dir: 'right',
-  nextDir: 'right',
-  alive: true,
-  grow: 0,
-  score: 0,
-  baseSpeed,
-  currentSpeed: baseSpeed,
-  lastMoveTime: 0,
-  rageActive: false,
-  patrolTarget: getRandomPatrolTarget()
-};
+  return {
+    snake,
+    dir: 'right',
+    nextDir: 'right',
+    alive: true,
+    grow: 0,
+    score: 0,
+    baseSpeed,
+    currentSpeed: baseSpeed,
+    lastMoveTime: 0,
+    rageActive: false,
+    patrolTarget: getRandomPatrolTarget()
+  };
 }
 function startBossTimers() {
   stopBossTimers();
@@ -1045,7 +1095,7 @@ function startBossTimers() {
   const blinkInterval = 100; // fast blink
 
   bossTimers.rage = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || (selectedLevel !== 6 && selectedLevel !== 7)) {
       return;
     }
 
@@ -1053,7 +1103,7 @@ function startBossTimers() {
   }, rageInterval);
 
   bossTimers.blink = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+    if (!bossSnake || !bossSnake.alive || (selectedLevel !== 6 && selectedLevel !== 7)) {
       return;
     }
     // Blink handled in drawBossSnake()
@@ -1061,7 +1111,7 @@ function startBossTimers() {
 
   // Boss movement timer
   bossMoveTimer = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || (selectedLevel !== 6 && selectedLevel !== 7)) {
       return;
     }
 
@@ -1074,7 +1124,7 @@ function startBossTimers() {
 
 
 function moveBossSnake() {
-  if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+  if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || (selectedLevel !== 6 && selectedLevel !== 7)) {
     return;
   }
 
@@ -1344,7 +1394,7 @@ function getBossChaseDirection(head, target) {
 }
 
 function checkBossPlayerCollision() {
-  if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+  if (!bossSnake || !bossSnake.alive || (selectedLevel !== 6 && selectedLevel !== 7)) {
     return;
   }
 
@@ -1459,7 +1509,7 @@ function drawRemoteBoss() {
 
 
 function drawBossSnake() {
-  if (!bossSnake || !bossSnake.alive || selectedLevel !== 6) {
+  if (!bossSnake || !bossSnake.alive || (selectedLevel !== 6 && selectedLevel !== 7)) {
     return;
   }
 
@@ -1482,7 +1532,7 @@ function drawBossSnake() {
     }
   }
 
-  // Draw body with highlights
+  // Draw body with highlights - apply camera offset for Level 7
   ctx.strokeStyle = drawColor;
   ctx.lineWidth = drawSize * 0.85;
   ctx.lineCap = 'round';
@@ -1491,8 +1541,9 @@ function drawBossSnake() {
   ctx.beginPath();
   for (let i = bossSnake.snake.length - 1; i >= 0; i--) {
     const segment = bossSnake.snake[i];
-    const x = segment.x * drawSize + drawSize / 2;
-    const y = segment.y * drawSize + drawSize / 2;
+    // Apply camera offset for Level 7
+    const x = (segment.x - camera.x) * drawSize + drawSize / 2;
+    const y = (segment.y - camera.y) * drawSize + drawSize / 2;
 
     if (i === bossSnake.snake.length - 1) {
       ctx.moveTo(x, y);
@@ -1502,23 +1553,23 @@ function drawBossSnake() {
   }
   ctx.stroke();
 
-  // Draw head
+  // Draw head - apply camera offset for Level 7
   const head = bossSnake.snake[0];
-  const hx = head.x * drawSize + drawSize / 2;
-  const hy = head.y * drawSize + drawSize / 2;
+  const hx = (head.x - camera.x) * drawSize + drawSize / 2;
+  const hy = (head.y - camera.y) * drawSize + drawSize / 2;
 
   ctx.fillStyle = drawColor;
   ctx.beginPath();
   ctx.arc(hx, hy, drawSize * 0.42, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw red highlights on sides
+  // Draw red highlights on sides - apply camera offset for Level 7
   ctx.strokeStyle = highlightColor;
   ctx.lineWidth = 2;
   for (let i = 1; i < bossSnake.snake.length - 1; i++) {
     const segment = bossSnake.snake[i];
-    const x = segment.x * drawSize;
-    const y = segment.y * drawSize;
+    const x = (segment.x - camera.x) * drawSize;
+    const y = (segment.y - camera.y) * drawSize;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -1552,7 +1603,7 @@ function activateBossRage(durationMs) {
   // Restart boss move timer with rage speed
   clearInterval(bossMoveTimer);
   bossMoveTimer = setInterval(() => {
-    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+    if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || (selectedLevel !== 6 && selectedLevel !== 7)) {
       return;
     }
 
@@ -1572,7 +1623,7 @@ function activateBossRage(durationMs) {
     // Restart boss move timer with normal speed
     clearInterval(bossMoveTimer);
     bossMoveTimer = setInterval(() => {
-      if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || selectedLevel !== 6) {
+      if (!bossSnake || !bossSnake.alive || isPaused || localGameOverShown || (selectedLevel !== 6 && selectedLevel !== 7)) {
         return;
       }
 
@@ -1969,7 +2020,7 @@ function startOfflineAppleTimers() {
   }, speedConfig.player);
 
   // Boss movement timer (separate from game loop)
-  if (selectedLevel === 6) {
+  if (selectedLevel === 6 || selectedLevel === 7) {
     bossMoveTimer = setInterval(() => {
       if (mode === 'offline' && !isPaused && !localGameOverShown && bossSnake && bossSnake.alive) {
         moveBossSnake();
@@ -2153,6 +2204,9 @@ level5Btn.addEventListener('click', () => {
 level6Btn.addEventListener('click', () => {
   startSelectedLevel(6);
 });
+level7Btn.addEventListener('click', () => {
+  startSelectedLevel(7);
+});
 backFromLevelBtn.addEventListener('click', () => {
   showScreen(mainMenu);
   mode = 'menu';
@@ -2231,9 +2285,24 @@ function resetLocalGame() {
   const cfgInitPos = (window.GAME_CONFIG && window.GAME_CONFIG.initialPosition) || { x: 10, y: 8 };
   const cfgInitLen = (window.GAME_CONFIG && window.GAME_CONFIG.initialLength) || 3;
 
-  localSnake = [];
-  for (let i = 0; i < cfgInitLen; i++) {
-    localSnake.push({ x: cfgInitPos.x - i, y: cfgInitPos.y });
+    // Level 7: Spawn in middle of 175x175 map (4x smaller)
+  if (selectedLevel === 7) {
+    gridWidth = 175;
+    gridHeight = 175;
+    // Update viewport for Level 7
+    viewportWidth = Math.floor(canvas.width / drawSize);
+    viewportHeight = Math.floor(canvas.height / drawSize);
+    localSnake = [];
+    for (let i = 0; i < cfgInitLen; i++) {
+      localSnake.push({ x: 87 - i, y: 87 });
+    }
+  } else {
+    gridWidth = window.GAME_CONFIG?.grid?.width || 72;
+    gridHeight = window.GAME_CONFIG?.grid?.height || 80;
+    localSnake = [];
+    for (let i = 0; i < cfgInitLen; i++) {
+      localSnake.push({ x: cfgInitPos.x - i, y: cfgInitPos.y });
+    }
   }
 
   localDir = 'right';
@@ -2246,16 +2315,28 @@ function resetLocalGame() {
   enemies = [];
   obstacles = createLevelObstacles();
 
-  // Spawn BOSS in Level 6 only (single-player)
-  if (selectedLevel === 6) {
+  // Spawn BOSS in Level 6 and 7 (single-player)
+  if (selectedLevel === 6 || selectedLevel === 7) {
     bossSnake = createBossSnake();
     startBossTimers();
+    if (selectedLevel === 7) {
+      spawnLevel7Enemies();
+    }
   } else {
     bossSnake = null;
     stopBossTimers();
   }
 
   food = [randomFood('red')];
+
+  // Reset camera for Level 7
+  if (selectedLevel === 7) {
+    camera.x = Math.max(0, Math.min(localSnake[0].x - Math.floor(viewportWidth / 2), gridWidth - viewportWidth));
+    camera.y = Math.max(0, Math.min(localSnake[0].y - Math.floor(viewportHeight / 2), gridHeight - viewportHeight));
+  } else {
+    camera.x = 0;
+    camera.y = 0;
+  }
 
   gameOverLogo.classList.remove('show');
   hideWinnerMessage(); // Hide winner message on restart
@@ -2270,7 +2351,7 @@ function resetLocalGame() {
   draw();
 }
 function createLevelObstacles(level = selectedLevel) {
-  if (level === 1) {
+  if (level === 1 || level === 7) {
     return [];
   }
 
@@ -2713,21 +2794,22 @@ function drawSnake(snake, color) {
   for (let i = snake.length - 1; i >= 0; i--) {
     const segment = snake[i];
 
-    const x = segment.x * drawSize + drawSize / 2;
-    const y = segment.y * drawSize + drawSize / 2;
+    // Apply camera offset for Level 7
+    const drawX = (segment.x - camera.x) * drawSize + drawSize / 2;
+    const drawY = (segment.y - camera.y) * drawSize + drawSize / 2;
 
     if (i === snake.length - 1) {
-      ctx.moveTo(x, y);
+      ctx.moveTo(drawX, drawY);
     } else {
-      ctx.lineTo(x, y);
+      ctx.lineTo(drawX, drawY);
     }
   }
 
   ctx.stroke();
 
   const head = snake[0];
-  const hx = head.x * drawSize + drawSize / 2;
-  const hy = head.y * drawSize + drawSize / 2;
+  const hx = (head.x - camera.x) * drawSize + drawSize / 2;
+  const hy = (head.y - camera.y) * drawSize + drawSize / 2;
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -2804,6 +2886,18 @@ function drawRemoteBoss() {
 
 function drawApple() {
   for (const apple of food) {
+    // Skip apples outside viewport for Level 7
+    if (selectedLevel === 7) {
+      if (
+        apple.x < camera.x ||
+        apple.x >= camera.x + viewportWidth ||
+        apple.y < camera.y ||
+        apple.y >= camera.y + viewportHeight
+      ) {
+        continue;
+      }
+    }
+
     if (apple.type === 'blue') {
       ctx.fillStyle = '#2583ff';
     } else if (apple.type === 'green') {
@@ -2814,8 +2908,8 @@ function drawApple() {
 
     ctx.beginPath();
     ctx.arc(
-      apple.x * drawSize + drawSize / 2,
-      apple.y * drawSize + drawSize / 2,
+      (apple.x - camera.x) * drawSize + drawSize / 2,
+      (apple.y - camera.y) * drawSize + drawSize / 2,
       drawSize * 0.35,
       0,
       Math.PI * 2
@@ -2830,8 +2924,20 @@ function drawObstacles() {
   ctx.lineWidth = 1;
 
   for (const block of obstacles) {
-    const x = block.x * drawSize;
-    const y = block.y * drawSize;
+    // Skip obstacles outside viewport for Level 7
+    if (selectedLevel === 7) {
+      if (
+        block.x < camera.x ||
+        block.x >= camera.x + viewportWidth ||
+        block.y < camera.y ||
+        block.y >= camera.y + viewportHeight
+      ) {
+        continue;
+      }
+    }
+
+    const x = (block.x - camera.x) * drawSize;
+    const y = (block.y - camera.y) * drawSize;
 
     ctx.fillRect(
       x,
@@ -2854,12 +2960,14 @@ function drawLocal() {
   drawApple();
   drawSnake(localSnake, '#008cff');
 
-  if (selectedLevel === 6) {
+  // Draw boss snake for Level 6 and 7
+  if (selectedLevel === 6 || selectedLevel === 7) {
     drawBossSnake();
-  } else {
-    for (const enemy of enemies) {
-      drawSnake(enemy.snake, '#d4af37');
-    }
+  }
+
+  // Draw enemy snakes
+  for (const enemy of enemies) {
+    drawSnake(enemy.snake, '#d4af37');
   }
 
   ctx.fillStyle = '#fff';
@@ -2933,6 +3041,24 @@ function draw() {
     );
   }
 
+  // Update camera for Level 7
+  if (selectedLevel === 7 && localSnake && localSnake[0]) {
+    const targetCamX = localSnake[0].x - Math.floor(viewportWidth / 2);
+    const targetCamY = localSnake[0].y - Math.floor(viewportHeight / 2);
+    
+    // Clamp camera to map boundaries
+    camera.x = Math.max(0, Math.min(targetCamX, gridWidth - viewportWidth));
+    camera.y = Math.max(0, Math.min(targetCamY, gridHeight - viewportHeight));
+    
+    // If map is smaller than viewport, center the view
+    if (gridWidth < viewportWidth) {
+      camera.x = Math.floor((gridWidth - viewportWidth) / 2);
+    }
+    if (gridHeight < viewportHeight) {
+      camera.y = Math.floor((gridHeight - viewportHeight) / 2);
+    }
+  }
+
   if (
     mode === 'online' &&
     Object.keys(players).length > 0
@@ -3001,13 +3127,23 @@ function stepLocal() {
       segment.y === head.y
     );
 
-  const hitsEnemy = enemies.some((enemy) =>
+
+    const hitsEnemy = enemies.some((enemy) =>
     enemy.alive &&
     enemy.snake.some((part) =>
       part.x === head.x &&
       part.y === head.y
     )
   );
+  
+  
+
+  // Check if player hits boss snake body
+  const hitsBoss = bossSnake && bossSnake.alive && bossSnake.snake.some((part) =>
+    part.x === head.x &&
+    part.y === head.y
+  );
+
   const hitsObstacle = obstacles.some((block) =>
     block.x === head.x &&
     block.y === head.y
@@ -3016,6 +3152,7 @@ function stepLocal() {
     outside ||
     hitsSelf ||
     hitsEnemy ||
+    hitsBoss ||
     hitsObstacle
   ) {
     showOfflineGameOver();
@@ -3083,8 +3220,12 @@ showScreen(mainMenu);
 playIntroMusic();
 
 
-canvas.width = 360;
-canvas.height = 400;
+// Default canvas size for levels 1-6
+const defaultCanvasWidth = 360;
+const defaultCanvasHeight = 400;
+
+canvas.width = defaultCanvasWidth;
+canvas.height = defaultCanvasHeight;
 
 const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 60;
 setInterval(gameLoop, gameSpeed);

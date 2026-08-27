@@ -10,7 +10,7 @@ const GAME_CONFIG = {
 
   // ⚡ SPEED SETTINGS (milliseconds per move - lower = faster)
   speed: {
-    player: 120,        // Player snake speed (offline & online)
+    player: 50,        // Player snake speed (offline & online)
     enemy: 120,         // Enemy AI snakes (levels 1-5)
     boss: {
       normal: 120,       // Boss snake normal speed
@@ -61,13 +61,14 @@ const GAME_CONFIG = {
   },
 
   // Levels (1–6)
-  levels: {
+    levels: {
     1: { name: 'Plain board', obstacles: 'none' },
     2: { name: 'Middle block', obstacles: 'horizontal' },
     3: { name: 'Cross blocks', obstacles: 'cross' },
     4: { name: 'The Four Gates', obstacles: 'fourGates' },
     5: { name: 'The Maze Runner', obstacles: 'maze' },
-    6: { name: 'BOSS SURVIVAL', obstacles: 'boss' }
+    6: { name: 'BOSS SURVIVAL', obstacles: 'boss' },
+    7: { name: 'OPEN WORLD', obstacles: 'openWorld', width: 2000, height: 2000 }
   },
 
   // BOSS snake settings (Level 6 only)

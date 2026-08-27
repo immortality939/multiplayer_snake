@@ -1055,7 +1055,7 @@ function createLevelObstaclesForLevel(level) {
     }
   }
 
-  if (level === 6) {
+  if (level === 6 || level === 7) {
     const addBox = (x1, y1, x2, y2, openings = []) => {
       for (let x = x1; x <= x2; x++) {
         for (let y = y1; y <= y2; y++) {
