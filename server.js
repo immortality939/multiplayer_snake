@@ -540,7 +540,7 @@ function startRoom(room) {
           rageActive: boss.rageActive
         }
       : null,
-    introMessage: 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE',
+    introMessage: room.level === 6 ? 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE' : '',
     introDuration: 4000
   });
 
@@ -551,25 +551,34 @@ function startRoom(room) {
       return;
     }
 
-    room.startTime = Date.now();
-    room.countdownEndsAt = room.startTime + 60000;
     room.paused = false; // Now allow players to control
 
-    broadcastRoom(room, {
-      type: 'countdownStart',
-      countdownEndsAt: room.countdownEndsAt
-    });
+    // Only start countdown in Level 6
+    if (room.level === 6) {
+      room.startTime = Date.now();
+      room.countdownEndsAt = room.startTime + 60000;
 
-    clearTimeout(room.countdownTimer);
+      broadcastRoom(room, {
+        type: 'countdownStart',
+        countdownEndsAt: room.countdownEndsAt
+      });
 
-    room.countdownTimer = setTimeout(() => {
-      finishRoomCountdown(room);
-    }, 60000);
+      clearTimeout(room.countdownTimer);
+
+      room.countdownTimer = setTimeout(() => {
+        finishRoomCountdown(room);
+      }, 60000);
+    }
   }, 4000);
 }
 
 function finishRoomCountdown(room) {
   if (!room.started || room.winnerShown) {
+    return;
+  }
+
+  // Only show winner/noWinner in Level 6
+  if (room.level !== 6) {
     return;
   }
 
@@ -1644,7 +1653,7 @@ wss.on('connection', (ws) => {
           rageActive: boss.rageActive
         }
       : null,
-    introMessage: 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE',
+    introMessage: room.level === 6 ? 'SNAKE SURVIVAL LAST SNAKE ALIVE<br>AVOID BOSS SNAKE' : '',
     introDuration: 4000
   });
 
@@ -1656,20 +1665,24 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    room.startTime = Date.now();
-    room.countdownEndsAt = room.startTime + 60000;
     room.paused = false;
 
-    broadcastRoom(room, {
-      type: 'countdownStart',
-      countdownEndsAt: room.countdownEndsAt
-    });
+    // Only start countdown in Level 6
+    if (room.level === 6) {
+      room.startTime = Date.now();
+      room.countdownEndsAt = room.startTime + 60000;
 
-    clearTimeout(room.countdownTimer);
+      broadcastRoom(room, {
+        type: 'countdownStart',
+        countdownEndsAt: room.countdownEndsAt
+      });
 
-    room.countdownTimer = setTimeout(() => {
-      finishRoomCountdown(room);
-    }, 60000);
+      clearTimeout(room.countdownTimer);
+
+      room.countdownTimer = setTimeout(() => {
+        finishRoomCountdown(room);
+      }, 60000);
+    }
   }, 4000);
 
   return;

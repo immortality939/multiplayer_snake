@@ -280,6 +280,14 @@ function setRoomStatus(message) {
 function showIntroMessage(message) {
   if (!introMessageElement) return;
 
+  // Only show intro message in Level 6
+  if (multiplayerLevel !== 6 || !message) {
+    introMessageElement.style.display = 'none';
+    isPaused = false;
+    setStatus(`Level ${multiplayerLevel}`);
+    return;
+  }
+
   introMessageElement.innerHTML = message.replace(/, /g, '<br>');
   introMessageElement.style.display = 'block';
 
@@ -298,6 +306,11 @@ function showIntroMessage(message) {
 }
 
 function startCountdown(seconds) {
+  // Only show countdown in Level 6
+  if (multiplayerLevel !== 6) {
+    return;
+  }
+
   clearInterval(countdownTimerInterval);
 
   countdownValue = seconds;
@@ -702,14 +715,18 @@ function handleServerMessage(data) {
   }
 
   if (data.type === 'winner') {
-    // Show winner message
-    showWinnerMessage(data.winnerName || 'NO WINNER');
+    // Only show winner message in Level 6
+    if (multiplayerLevel === 6) {
+      showWinnerMessage(data.winnerName || 'NO WINNER');
+    }
     return;
   }
 
   if (data.type === 'noWinner') {
-    // Show no winner message
-    showWinnerMessage('NO WINNER');
+    // Only show no winner message in Level 6
+    if (multiplayerLevel === 6) {
+      showWinnerMessage('NO WINNER');
+    }
     return;
   }
 }
