@@ -1339,10 +1339,13 @@ function gameStep(room) {
   if (
     !room.started ||
     room.paused ||
-    !room.startTime ||
-    Date.now() < room.startTime ||
     room.winnerShown
   ) {
+    return;
+  }
+
+  // For Level 6, also check countdown timing
+  if (room.level === 6 && (!room.startTime || Date.now() < room.startTime)) {
     return;
   }
 
