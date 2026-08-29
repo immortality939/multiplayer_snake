@@ -43,7 +43,7 @@ const GAME_CONFIG = {
     gameLoop: 120,
     blueAppleSpawn: 8000,
     greenAppleSpawn: 16000,
-    enemySpawn: 20000
+    enemySpawn: 2000
   },
 
   // Food growth values

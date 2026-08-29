@@ -1673,56 +1673,7 @@ function getNearestEnemyApple(enemy) {
   }, null).apple;
 }
 
-function enemyMoveIsDangerous(position, enemy) {
-  if (
-    position.x < 0 ||
-    position.x >= gridWidth ||
-    position.y < 0 ||
-    position.y >= gridHeight
-  ) {
-    return true;
-  }
 
-  const hitsObstacle = obstacles.some((block) =>
-    block.x === position.x &&
-    block.y === position.y
-  );
-
-  if (hitsObstacle) {
-    return true;
-  }
-
-  const hitsOwnBody = enemy.snake
-    .slice(1)
-    .some((part) =>
-      part.x === position.x &&
-      part.y === position.y
-    );
-
-  if (hitsOwnBody) {
-    return true;
-  }
-
-  const hitsPlayer = localSnake.some((part) =>
-    part.x === position.x &&
-    part.y === position.y
-  );
-
-  if (hitsPlayer) {
-    return true;
-  }
-
-  const hitsAnotherEnemy = enemies.some((other) =>
-    other !== enemy &&
-    other.alive &&
-    other.snake.some((part) =>
-      part.x === position.x &&
-      part.y === position.y
-    )
-  );
-
-  return hitsAnotherEnemy;
-}
 function isBlockedForEnemy(position, enemy) {
   if (
     position.x < 0 ||
@@ -1842,6 +1793,16 @@ function findEnemyPath(enemy, target) {
   return null;
 }
 function chooseEnemyDirection(enemy) {
+  // Cache pathfinding
+  if (!enemy.lastPathfindTime || Date.now() - enemy.lastPathfindTime > 360) {
+    enemy.lastPathfindTime = Date.now();
+    enemy.cachedDirection = null;
+  }
+  
+  if (enemy.cachedDirection) {
+    return enemy.cachedDirection;
+  }
+  
   const target = getNearestEnemyApple(enemy);
 
   if (!target) {
@@ -1852,6 +1813,7 @@ function chooseEnemyDirection(enemy) {
     findEnemyPath(enemy, target);
 
   if (pathDirection) {
+    enemy.cachedDirection = pathDirection;
     return pathDirection;
   }
 
@@ -1913,7 +1875,7 @@ function moveEnemy(enemy) {
   );
 
   if (
-    enemyMoveIsDangerous(head, enemy)
+    isBlockedForEnemy(head, enemy)
   ) {
     enemy.alive = false;
     return;
@@ -1977,23 +1939,21 @@ function startOfflineAppleTimers() {
   }, timings.blueAppleSpawn);
 
   offlineGreenTimer = setInterval(() => {
-    if (mode === 'offline' && !isPaused && !localGameOverShown) {
-      food.push(randomFood('green'));
-      draw();
-    }
-  }, timings.greenAppleSpawn);
+  if (mode === 'offline' && !isPaused && !localGameOverShown) {
+    food.push(randomFood('green'));
+  }
+}, timings.greenAppleSpawn);
 
   offlineEnemyTimer = setInterval(() => {
-    if (
-      mode === 'offline' &&
-      !isPaused &&
-      !localGameOverShown &&
-      selectedLevel !== 6
-    ) {
-      spawnEnemy();
-      draw();
-    }
-  }, timings.enemySpawn);
+  if (
+    mode === 'offline' &&
+    !isPaused &&
+    !localGameOverShown &&
+    selectedLevel !== 6
+  ) {
+    spawnEnemy();
+  }
+}, timings.enemySpawn);
 
   // Enemy movement timer (separate from player)
   enemyMoveTimer = setInterval(() => {
@@ -2007,7 +1967,6 @@ function startOfflineAppleTimers() {
         moveEnemy(enemy);
       }
       enemies = enemies.filter(enemy => enemy.alive);
-      draw();
     }
   }, speedConfig.enemy);
 
@@ -2015,7 +1974,6 @@ function startOfflineAppleTimers() {
   playerMoveTimer = setInterval(() => {
     if (mode === 'offline' && !isPaused && !localGameOverShown) {
       stepLocal();
-      draw();
     }
   }, speedConfig.player);
 
@@ -2025,7 +1983,6 @@ function startOfflineAppleTimers() {
       if (mode === 'offline' && !isPaused && !localGameOverShown && bossSnake && bossSnake.alive) {
         moveBossSnake();
         checkBossPlayerCollision();
-        draw();
       }
     }, speedConfig.boss.normal);
   }
@@ -3227,5 +3184,27 @@ const defaultCanvasHeight = 400;
 canvas.width = defaultCanvasWidth;
 canvas.height = defaultCanvasHeight;
 
-const gameSpeed = window.GAME_CONFIG?.timings?.gameLoop || 60;
-setInterval(gameLoop, gameSpeed);
+// Optimized game loop using requestAnimationFrame
+let lastTime = 0;
+let accumulator = 0;
+const TICK_RATE = window.GAME_CONFIG.timings.gameLoop || 100;
+
+function optimizedGameLoop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  const deltaTime = timestamp - lastTime;
+  lastTime = timestamp;
+  
+  accumulator += deltaTime;
+  
+  while (accumulator >= TICK_RATE) {
+    if (mode === 'offline' && !isPaused && !localGameOverShown) {
+      stepLocal();
+    }
+    accumulator -= TICK_RATE;
+  }
+  
+  draw();
+  requestAnimationFrame(optimizedGameLoop);
+}
+
+requestAnimationFrame(optimizedGameLoop);
